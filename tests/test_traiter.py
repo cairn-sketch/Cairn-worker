@@ -1,0 +1,99 @@
+"""Tests du traitement (images générées par programme : aucune photo de personne dans le dépôt)."""
+import io
+import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
+from PIL import Image, ImageFilter
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import traiter as t  # noqa: E402
+
+
+def scene(decalage=(0, 0), w=1200, h=900, graine=1) -> Image.Image:
+    """Paysage synthétique : bruit à plusieurs échelles + formes, assez de détails pour un recalage."""
+    r = np.random.default_rng(graine)
+    base = np.zeros((h + 200, w + 200), np.float32)
+    for k in (8, 24, 80):
+        base += np.kron(r.random((base.shape[0] // k + 1, base.shape[1] // k + 1)), np.ones((k, k)))[: base.shape[0], : base.shape[1]] * (k ** 0.5)
+    base = (255 * (base - base.min()) / np.ptp(base)).astype(np.uint8)
+    dx, dy = decalage
+    rec = base[100 + dy:100 + dy + h, 100 + dx:100 + dx + w]
+    return Image.fromarray(np.stack([rec, rec, rec], -1)).convert("RGB")
+
+
+def octets(im, fmt="JPEG", **kw):
+    b = io.BytesIO(); im.save(b, fmt, **kw); return b.getvalue()
+
+
+SANS_VISAGE = lambda g: []  # noqa: E731
+
+
+def test_photo_nette_acceptee_et_variantes():
+    r = t.traiter(octets(scene()), visages=SANS_VISAGE)
+    assert r["status"] == "accepted" and r["reasons"] == []
+    assert set(r["variants"]) == {"640.webp", "640.jpg", "1280.webp", "1280.jpg", "1600.webp", "1600.jpg", "thumb.jpg"}
+    assert Image.open(io.BytesIO(r["variants"]["1600.jpg"])).size == (1600, 1200)
+    assert Image.open(io.BytesIO(r["variants"]["thumb.jpg"])).size == (480, 360)
+
+
+def test_floue_rejetee():
+    flou = scene().filter(ImageFilter.GaussianBlur(12))
+    assert t.traiter(octets(flou), visages=SANS_VISAGE)["reasons"] == ["floue"]
+
+
+def test_trop_sombre_rejetee():
+    sombre = Image.fromarray((np.asarray(scene()) * 0.05).astype(np.uint8))
+    assert t.traiter(octets(sombre), visages=SANS_VISAGE)["reasons"] == ["trop_sombre"]
+
+
+def test_visage_assez_grand_rejete_petit_ignore():
+    img = octets(scene())
+    assert t.traiter(img, visages=lambda g: [int(g.shape[1] * 0.2)])["reasons"] == ["visage"]
+    assert t.traiter(img, visages=lambda g: [int(g.shape[1] * 0.02)])["status"] == "accepted"
+
+
+def test_illisible_rejete_sans_exception():
+    assert t.traiter(b"pas une image")["reasons"] == ["format"]
+
+
+def test_gps_et_metadonnees_supprimes_et_orientation_appliquee():
+    im = scene(w=1200, h=900)
+    ex = Image.Exif(); ex[0x0112] = 6; ex[0x8825] = {1: "N", 2: (48.0, 51.0, 24.0)}; ex[0x010F] = "Marque"
+    brut = octets(im, exif=ex)
+    assert b"Marque" in brut
+    r = t.traiter(brut, visages=SANS_VISAGE)
+    for nom, v in r["variants"].items():
+        out = Image.open(io.BytesIO(v))
+        assert not out.getexif() and b"Marque" not in v and b"Exif" not in v, nom
+    # orientation 6 : l'image portrait 900x1200 est recadrée en 4:3 (pas de 1600x1200 déformé)
+    assert t.decoder(brut).size == (900, 1200)
+
+
+def test_hors_cadre_en_revue_manuelle():
+    ref = octets(scene(graine=1))
+    autre = octets(scene(graine=7))
+    r = t.traiter(autre, ref, visages=SANS_VISAGE)
+    assert (r["status"], r["reasons"]) == ("pending", ["hors_cadre"])
+    assert r["variants"]  # les variantes existent quand même pour la revue
+
+
+def test_petit_decalage_aligne_grand_decalage_conserve():
+    ref = octets(scene())
+    petit = t.traiter(octets(scene(decalage=(20, 10))), ref, visages=SANS_VISAGE)
+    assert petit["status"] == "accepted" and petit["scores"]["alignment_score"] is not None
+    grand = t.traiter(octets(scene(decalage=(90, 60))), ref, visages=SANS_VISAGE)
+    assert grand["status"] in ("accepted", "pending") and grand["scores"]["alignment_score"] is None
+
+
+def test_bombe_de_decompression_refusee(monkeypatch):
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)
+    assert t.traiter(octets(scene(w=200, h=200)))["reasons"] == ["format"]
+
+
+def test_heic_decode():
+    pytest.importorskip("pillow_heif")
+    import pillow_heif
+    b = io.BytesIO(); pillow_heif.from_pillow(scene()).save(b); 
+    assert t.traiter(b.getvalue(), visages=SANS_VISAGE)["status"] == "accepted"

@@ -1,0 +1,35 @@
+#cloud-config
+# Création du serveur du worker (Q61). Remplacer la valeur __…__ avant de coller. Le serveur tire ensuite lui-même les mises à jour
+# du dépôt public (aucun SSH) et signale sa vie à Supabase toutes les 5 min. Aucune clé de service ni identifiant de base ici.
+package_update: true
+packages: [docker.io, docker-compose-v2, ufw, git, curl]
+ssh_pwauth: false
+write_files:
+  - path: /etc/cairn-worker.env
+    permissions: '0600'
+    content: |
+      DEPOT_URL=https://github.com/cairn-sketch/cairn-worker.git
+      SUPABASE_FUNCTIONS_URL=https://hkoxlxxbqdvtqvdgmsiz.supabase.co/functions/v1
+      WORKER_TOKEN=__JETON_CHOISI_PAR_LE_PORTEUR__
+  - path: /etc/systemd/system/cairn-worker.service
+    content: |
+      [Unit]
+      Description=Mise à jour et signe de vie du worker Cairn
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/cairn-worker/mettre-a-jour.sh
+  - path: /etc/systemd/system/cairn-worker.timer
+    content: |
+      [Timer]
+      OnBootSec=2min
+      OnUnitActiveSec=5min
+      [Install]
+      WantedBy=timers.target
+runcmd:
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw --force enable
+  - sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && systemctl restart ssh
+  - . /etc/cairn-worker.env && git clone "$DEPOT_URL" /opt/cairn-worker
+  - set -a; . /etc/cairn-worker.env; cd /opt/cairn-worker && cp -n .env.example .env && sed -i "s|^WORKER_TOKEN=.*|WORKER_TOKEN=$WORKER_TOKEN|" .env && docker compose up -d --build
+  - systemctl daemon-reload && systemctl enable --now cairn-worker.timer

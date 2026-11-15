@@ -1,0 +1,14 @@
+# Aucun identifiant de base ici : le worker ne reçoit que des URL signées et un jeton de tâche, par tâche (13 bis.3).
+services:
+  worker:
+    build: .
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:size=256m,noexec,nosuid"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 1.0
+    ports: ["127.0.0.1:8080:8080"]   # jamais exposé tel quel : voir LISEZMOI.md (sortie et entrée réseau)
+    env_file: [.env]                 # SUPABASE_FUNCTIONS_URL seulement (voir .env.example)
