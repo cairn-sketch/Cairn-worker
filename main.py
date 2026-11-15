@@ -5,12 +5,14 @@ Aucune clé de service ni identifiant de base. Adresses acceptées : https sur l
 import json
 import multiprocessing as mp
 import os
+import sys
 import threading
 import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # lancé avec -I : le dossier du script n'est pas dans le chemin (processus enfant compris)
 FONCTIONS = os.environ.get("SUPABASE_FUNCTIONS_URL", "")
 HOTE = urlparse(FONCTIONS).hostname
 SECRET = os.environ.get("WORKER_TOKEN", "")
@@ -33,8 +35,11 @@ def telecharger(u: str) -> bytes:
 
 
 def _enfant(conn, original, reference):
-    import traiter
-    conn.send(traiter.traiter(original, reference))
+    try:
+        import traiter
+        conn.send(traiter.traiter(original, reference))
+    except Exception:  # une panne ne doit pas se déguiser en délai dépassé
+        conn.send({"status": "pending", "reasons": ["erreur_traitement"], "scores": {}, "variants": {}})
 
 
 def traiter_isole(original: bytes, reference) -> dict:
