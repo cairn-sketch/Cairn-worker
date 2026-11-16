@@ -40,18 +40,18 @@ def telecharger(u: str, maxi: int = TAILLE_MAX, refuser: bool = True) -> bytes:
     return d
 
 
-def _enfant(conn, original, reference):
+def _enfant(conn, original, reference, politique="flouter"):
     try:
         import traiter
-        conn.send(traiter.traiter(original, reference))
+        conn.send(traiter.traiter(original, reference, politique_visages=politique))
     except Exception:  # une panne ne doit pas se déguiser en délai dépassé
         conn.send({"status": "pending", "reasons": ["erreur_traitement"], "scores": {}, "variants": {}})
 
 
-def traiter_isole(original: bytes, reference) -> dict:
+def traiter_isole(original: bytes, reference, politique: str = "flouter") -> dict:
     """Un processus par photo, limité à 30 s ; au-delà, il est tué et la photo part en revue manuelle."""
     pere, fils = mp.get_context("spawn").Pipe(False)
-    pr = mp.get_context("spawn").Process(target=_enfant, args=(fils, original, reference))
+    pr = mp.get_context("spawn").Process(target=_enfant, args=(fils, original, reference, politique))
     pr.start()
     if pere.poll(DELAI_TRAITEMENT):
         res = pere.recv()
@@ -73,7 +73,7 @@ def travailler(t: dict, jeton: str):
         try:
             original = telecharger(t["original_url"])
             reference = telecharger(t["reference_url"]) if t.get("reference_url") else None
-            res = traiter_isole(original, reference)
+            res = traiter_isole(original, reference, "refuser" if t.get("visages") == "refuser" else "flouter")
             corps = {"photo_id": t["photo_id"], "status": res["status"], "reasons": res["reasons"], "scores": res["scores"]}
             if res["variants"]:
                 for nom, octets in res["variants"].items():

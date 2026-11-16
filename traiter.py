@@ -5,7 +5,7 @@ import math
 
 import cv2
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image, ImageFilter, ImageOps
 
 try:
     import pillow_heif
@@ -44,9 +44,22 @@ def _gris(im: Image.Image, largeur: int) -> np.ndarray:
 
 
 def visages_opencv(gris: np.ndarray):
-    """Détecteur local (cascade de Haar fournie avec OpenCV, aucun service tiers) : liste de largeurs en pixels."""
+    """Détecteur local (cascade de Haar fournie avec OpenCV, aucun service tiers) : liste de rectangles (x, y, largeur, hauteur) en pixels."""
     c = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-    return [int(w) for (_x, _y, w, _h) in c.detectMultiScale(gris, 1.1, 6, minSize=(24, 24))]
+    return [tuple(int(v) for v in r) for r in c.detectMultiScale(gris, 1.1, 6, minSize=(24, 24))]
+
+
+def flouter(im: Image.Image, rects, largeur_detection: int) -> Image.Image:
+    """Masque les visages (V1.2 S5, A6) : chaque rectangle détecté, élargi d'un quart, est remplacé par une version très floue. Image recréée, rien d'autre ne change."""
+    k = im.width / largeur_detection
+    out = im.copy()
+    for (x, y, w, h) in rects:
+        m = 0.25
+        box = (max(0, int((x - w * m) * k)), max(0, int((y - h * m) * k)), min(im.width, int((x + w * (1 + m)) * k)), min(im.height, int((y + h * (1 + m)) * k)))
+        if box[2] > box[0] and box[3] > box[1]:
+            zone = out.crop(box)
+            out.paste(zone.filter(ImageFilter.GaussianBlur(max(12, (box[2] - box[0]) // 3))), box)
+    return out
 
 
 def _contours(im: Image.Image) -> np.ndarray:
@@ -114,8 +127,9 @@ def variantes(im: Image.Image) -> dict:
     return sortie
 
 
-def traiter(original: bytes, reference: bytes | None = None, seuils: dict | None = None, visages=visages_opencv) -> dict:
-    """Renvoie { status, reasons, scores, variants (nom → octets), width, height }. `visages(gris)` est injectable (tests)."""
+def traiter(original: bytes, reference: bytes | None = None, seuils: dict | None = None, visages=visages_opencv, politique_visages: str = "flouter") -> dict:
+    """Renvoie { status, reasons, scores, variants (nom → octets), width, height }. `visages(gris)` est injectable (tests).
+    `politique_visages` (réglage du lieu) : « flouter » (défaut, visages reconnaissables masqués, photo publiée) ou « refuser » (rejet bienveillant, motif visage)."""
     s = {**SEUILS, **(seuils or {})}
     try:
         im = decoder(original)
@@ -130,10 +144,12 @@ def traiter(original: bytes, reference: bytes | None = None, seuils: dict | None
     if lap < s["flou"]:
         return {"status": "rejected", "reasons": ["floue"], "scores": scores, "variants": {}}
     gv = _gris(im, 1000)
-    gros = [w for w in visages(gv) if w / gv.shape[1] >= s["visage"]]
+    gros = [r for r in visages(gv) if r[2] / gv.shape[1] >= s["visage"]]
     if gros:
         scores["has_faces"] = True
-        return {"status": "rejected", "reasons": ["visage"], "scores": scores, "variants": {}}
+        if politique_visages == "refuser":
+            return {"status": "rejected", "reasons": ["visage"], "scores": scores, "variants": {}}
+        im = flouter(im, gros, gv.shape[1])
     statut, motifs = "accepted", []
     if reference:
         try:

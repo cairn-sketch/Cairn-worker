@@ -48,10 +48,33 @@ def test_trop_sombre_rejetee():
     assert t.traiter(octets(sombre), visages=SANS_VISAGE)["reasons"] == ["trop_sombre"]
 
 
-def test_visage_assez_grand_rejete_petit_ignore():
+def _rect(frac, x=0.4, y=0.3):
+    return lambda g: [(int(g.shape[1] * x), int(g.shape[0] * y), int(g.shape[1] * frac), int(g.shape[1] * frac))]
+
+
+def test_visage_assez_grand_rejete_si_le_lieu_le_demande_petit_ignore():
     img = octets(scene())
-    assert t.traiter(img, visages=lambda g: [int(g.shape[1] * 0.2)])["reasons"] == ["visage"]
-    assert t.traiter(img, visages=lambda g: [int(g.shape[1] * 0.02)])["status"] == "accepted"
+    r = t.traiter(img, visages=_rect(0.2), politique_visages="refuser")
+    assert r["reasons"] == ["visage"] and r["status"] == "rejected" and r["scores"]["has_faces"] is True
+    assert t.traiter(img, visages=_rect(0.02), politique_visages="refuser")["status"] == "accepted"
+
+
+def test_visage_assez_grand_flouté_par_défaut_et_publié():
+    im = scene()
+    r = t.traiter(octets(im), visages=_rect(0.2))
+    assert r["status"] == "accepted" and r["reasons"] == [] and r["scores"]["has_faces"] is True and r["variants"]
+    # la zone du visage est lissée : bien moins de contraste local que l'image d'origine (même découpe 4:3)
+    avant = np.asarray(t.recadrer(im.convert("RGB")).resize((1600, 1200)).convert("L"), dtype=float)
+    apres = np.asarray(Image.open(io.BytesIO(r["variants"]["1600.jpg"])).convert("L"), dtype=float)
+    zone = (slice(int(1200 * 0.3), int(1200 * 0.3) + 250), slice(int(1600 * 0.4), int(1600 * 0.4) + 250))
+    assert apres[zone].std() < avant[zone].std() * 0.6 or apres[zone].std() < 8
+    hors = (slice(900, 1100), slice(100, 300))  # loin du visage : inchangé
+    assert abs(apres[hors].mean() - avant[hors].mean()) < 6
+
+
+def test_petit_visage_non_flouté():
+    r = t.traiter(octets(scene()), visages=_rect(0.02))
+    assert r["scores"]["has_faces"] is False and r["status"] == "accepted"
 
 
 def test_illisible_rejete_sans_exception():
