@@ -1,4 +1,4 @@
-"""Épreuve du panneau (V1.2 S4c) : canevas à marqueurs, PDF vectoriel aux polices incorporées, QR décodé sur l'épreuve, logos (mise à l'échelle,
+"""Ébauche du panneau (V1.2 S4c) : canevas à marqueurs, PDF vectoriel aux polices incorporées, QR décodé sur l'ébauche, logos (mise à l'échelle,
 avertissements, fichiers déguisés, énormes, malformés), exécution isolée et tâche du worker. Aucun réseau."""
 import importlib
 import io
@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 import pypdfium2 as pdfium
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import panneau  # noqa: E402
@@ -81,7 +81,7 @@ def test_pdf_a_l_echelle_polices_incorporees_et_textes():
     assert r["png"][:8] == b"\x89PNG\r\n\x1a\n" and Image.open(io.BytesIO(r["png"])).size[0] == 1000
 
 
-# ------------------------------------------------------------------ QR : décodé sur l'épreuve elle-même
+# ------------------------------------------------------------------ QR : décodé sur l'ébauche elle-même
 def decoder_tuile(pdf: bytes, dpi: int) -> str:
     im = raster(pdf, dpi)
     k = dpi / 25.4
@@ -179,19 +179,27 @@ def images(svg):
     return [tuple(float(v) for v in m) for m in re.findall(r'<image x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"', svg)]
 
 
+def contenu(o: bytes):
+    """Taille du contenu visible (hors fond blanc ou transparent) d'un logo, sans marge."""
+    a = np.asarray(Image.open(io.BytesIO(o)).convert("RGBA")).astype(int)
+    vis = (a[..., 3] > 16) & ~(a[..., :3] >= 231).all(axis=2)
+    ys, xs = np.where(vis.any(axis=1))[0], np.where(vis.any(axis=0))[0]
+    return xs[-1] - xs[0] + 1, ys[-1] - ys[0] + 1
+
+
 @pytest.mark.parametrize("nom,fabrique", [("large", logo_large), ("carre", logo_carre), ("etroit", logo_etroit)])
 def test_trois_formes_de_logo_dans_l_emplacement(nom, fabrique):
     original = fabrique()
-    ow, oh = Image.open(io.BytesIO(original)).size
+    ow, oh = contenu(original)  # les marges blanches sont rognées : les proportions sont celles du contenu
     p = panneau.preparer_logo(original, "png", 168, HZ - 3)
-    assert p["w"] / p["h"] == pytest.approx(ow / oh, rel=0.01)  # proportions conservées
+    assert p["w"] / p["h"] == pytest.approx(ow / oh, rel=0.15)  # proportions du contenu conservées (+ petite marge)
     svg, _ = panneau.composer(tache(logos=[(original, "png")]))
     (x, y, w, h), = images(svg)
     assert min(x, 176 - (x + w)) >= 4 - 1e-3 and min(y, HZ - (y + h)) >= 1.5 - 1e-3  # marges : 4 mm sur les côtés, 1,5 mm en hauteur
     assert abs(x - (176 - (x + w))) < 0.01 and abs(y - (HZ - (y + h))) < 0.01  # centré dans la zone de 176 mm x HZ
-    assert w / h == pytest.approx(ow / oh, rel=0.01)  # jamais étiré
+    assert w / h == pytest.approx(ow / oh, rel=0.15)  # jamais étiré
     assert (abs(w - 168) < 0.01 or abs(h - (HZ - 3)) < 0.01)  # au plus grand dans la zone utile
-    im = raster(panneau.produire(tache(logos=[(original, "png")]))["pdf"], 150)  # et il est bien dessiné dans l'épreuve
+    im = raster(panneau.produire(tache(logos=[(original, "png")]))["pdf"], 150)  # et il est bien dessiné dans l'ébauche
     k = 150 / 25.4
     zone = np.asarray(im.crop((int((3 + 12 + x) * k), int((3 + SZ + y) * k), int((3 + 12 + x + w) * k), int((3 + SZ + y + h) * k))).convert("L"))
     assert (zone < 120).mean() > 0.02
@@ -204,9 +212,10 @@ def test_jamais_recolore_ni_etire():
     im.paste((10, 120, 60), (160, 20, 280, 80))
     t = io.BytesIO(); im.save(t, "PNG")
     p = panneau.preparer_logo(t.getvalue(), "png", 168, 16)
-    sortie = Image.open(io.BytesIO(p["png"])).convert("RGB")
-    assert sortie.size == (300, 100)
-    assert set(sortie.get_flattened_data() if hasattr(sortie, 'get_flattened_data') else sortie.getdata()) == set(im.get_flattened_data() if hasattr(im, 'get_flattened_data') else im.getdata())
+    sortie = np.asarray(Image.open(io.BytesIO(p["png"])).convert("RGBA"))
+    assert sortie.shape[1] - 2 * 2 >= 260 and sortie.shape[0] - 2 * 2 >= 60  # rogné au contenu (260 x 60) plus 2 px de marge, aucun rééchantillonnage
+    opaques = {tuple(c[:3]) for c in sortie.reshape(-1, 4) if c[3] == 255}
+    assert opaques == {(200, 30, 30), (10, 120, 60)}  # couleurs inchangées ; le fond blanc est devenu transparent
 
 
 def centres(n, logo=logo_carre):
@@ -293,7 +302,7 @@ def test_logo_deguise_refuse(octets, kind):
     assert e.value.code == "logo_refuse"
     r = panneau.produire(tache(logos=[(octets, kind)]))
     assert {"code": "logo_refuse", "logo": 0} in r["avertissements"] and panneau.BLOQUANTS & set(codes(r))
-    assert b"evil.example" not in r["pdf"] and b"alert" not in r["pdf"]  # rien du fichier client dans l'épreuve
+    assert b"evil.example" not in r["pdf"] and b"alert" not in r["pdf"]  # rien du fichier client dans l'ébauche
 
 
 def test_svg_du_client_jamais_integre():
@@ -333,7 +342,7 @@ def test_logo_malforme_illisible_sans_planter(octets, kind):
         panneau.preparer_logo(octets, kind, 76, 20)
     assert e.value.code in ("logo_illisible", "logo_refuse")
     r = panneau.produire(tache(logos=[(octets, kind)]))
-    assert panneau.BLOQUANTS & set(codes(r)) and len(r["pdf"]) > 1000  # l'épreuve sort quand même, avec l'avertissement bloquant
+    assert panneau.BLOQUANTS & set(codes(r)) and len(r["pdf"]) > 1000  # l'ébauche sort quand même, avec l'avertissement bloquant
 
 
 def test_un_mauvais_logo_n_empeche_pas_les_autres():
@@ -459,3 +468,56 @@ def test_hote_du_pied_pris_dans_l_adresse_web(tmp_path):
 def test_gabarit_et_calque_de_decoupe_non_imprimes():
     svg = panneau.composer(tache())[0]
     assert "CutContour" not in svg and "LOGOS DU PARTENAIRE" not in svg and "EC008C" not in svg
+
+
+# ------------------------------------------------------------------ prétraitement : fond blanc détouré, marges rognées, logo qui remplit la zone
+def logo_marges():
+    """Écusson 400 x 400 au centre d'un JPG/PNG carré de 2000 x 2000, grandes marges blanches ; un blanc intérieur (un disque) à ne pas détourer."""
+    im = Image.new("RGB", (2000, 2000), "white")
+    d = ImageDraw.Draw(im)
+    d.rectangle((800, 800, 1199, 1199), fill=(40, 54, 74))
+    d.ellipse((900, 900, 1099, 1099), fill="white")
+    return im
+
+
+def octets(im, fmt="PNG"):
+    t = io.BytesIO(); im.save(t, fmt); return t.getvalue()
+
+
+@pytest.mark.parametrize("fmt,kind", [("PNG", "png"), ("JPEG", "jpg")])
+def test_logo_a_grandes_marges_blanches_remplit_la_zone(fmt, kind):
+    o = octets(logo_marges(), fmt)
+    svg, avert = panneau.composer(tache(logos=[(o, kind)]))
+    (x, y, w, h), = images(svg)
+    assert h == pytest.approx(HZ - 3, abs=0.01) and w == pytest.approx(h, rel=0.02)  # hauteur utile maximale, proportions du contenu (carré)
+    assert "fond_non_blanc" not in [a["code"] for a in avert]
+    p = panneau.preparer_logo(o, kind, 168, HZ - 3)
+    sortie = np.asarray(Image.open(io.BytesIO(p["png"])).convert("RGBA"))
+    assert sortie.shape[0] < 460 and sortie.shape[1] < 460  # 2000 px d'origine, contenu de 400 px + petite marge
+    assert sortie[0, 0, 3] == 0 and sortie[-1, -1, 3] == 0  # fond transparent
+    c = sortie.shape[0] // 2
+    assert sortie[c, sortie.shape[1] // 2, 3] == 255 and tuple(sortie[c, sortie.shape[1] // 2, :3]) == (255, 255, 255)  # blanc intérieur conservé, opaque
+
+
+def test_logo_deja_transparent_rogne_sans_alteration():
+    im = Image.new("RGBA", (1500, 900), (0, 0, 0, 0))
+    im.paste((200, 30, 30, 255), (500, 300, 1100, 500))
+    p = panneau.preparer_logo(octets(im), "png", 168, HZ - 3)
+    sortie = np.asarray(Image.open(io.BytesIO(p["png"])).convert("RGBA"))
+    assert sortie.shape[:2] == (200 + 2 * 12, 600 + 2 * 12)  # contenu 600 x 200 + marge (2 % de 600)
+    assert {tuple(c) for c in sortie.reshape(-1, 4) if c[3]} == {(200, 30, 30, 255)}
+    assert "fond_non_blanc" not in codes(panneau.produire(tache(logos=[(octets(im), "png")])))
+
+
+def test_fond_opaque_non_blanc_avertit_sans_bloquer():
+    r = panneau.produire(tache(logos=[(octets(Image.new("RGB", (1200, 400), (40, 54, 74))), "png")]))
+    assert "fond_non_blanc" in codes(r) and not panneau.BLOQUANTS & set(codes(r)) and "<image" in panneau.composer(tache(logos=[(octets(Image.new("RGB", (1200, 400), (40, 54, 74))), "png")]))[0]
+
+
+def test_pdf_de_logo_rogne_ses_marges():
+    im = Image.new("RGB", (2000, 1000), "white")
+    ImageDraw.Draw(im).rectangle((900, 450, 1099, 549), fill=(200, 30, 30))  # 200 x 100 px au centre d'une page à grandes marges
+    t = io.BytesIO(); im.save(t, "PDF", resolution=72)
+    p = panneau.preparer_logo(t.getvalue(), "pdf", 168, HZ - 3)
+    assert p["w"] / p["h"] == pytest.approx(2.0, rel=0.1) and p["w"] > 200
+    assert Image.open(io.BytesIO(p["png"])).convert("RGBA").getpixel((0, 0))[3] == 0

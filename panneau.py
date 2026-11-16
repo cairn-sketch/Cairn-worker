@@ -1,4 +1,4 @@
-"""Épreuve du panneau (V1.2 S4c) : le canevas (worker/panneau/canevas.svg, modèle à marqueurs) reçoit le code, l'adresse de réception, l'adresse web,
+"""Ébauche du panneau (V1.2 S4c) : le canevas (worker/panneau/canevas.svg, modèle à marqueurs) reçoit le code, l'adresse de réception, l'adresse web,
 le QR (matrice envoyée par la fonction Edge) et les logos du client, puis sort en PDF vectoriel (polices incorporées) et en aperçu PNG.
 Changer de canevas = déposer un autre fichier modèle ; aucun changement de code. Marqueurs : {{CODE}} {{MAIL}} {{URL}} {{QR}} {{LOGOS}} (+ {{HOTE}} facultatif : hôte du site, pied du panneau).
 Sécurité : jamais de SVG venant du client ; un logo est un PNG, un JPEG ou un PDF reconnu par ses octets, décodé puis ré-encodé en PNG propre
@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+import cv2
 import numpy as np
 from PIL import Image, ImageOps
 
@@ -31,6 +32,9 @@ PAGE_PDF_MAX = 5000  # points (1,76 m) : au-delà, ce n'est pas un logo
 DPI_MIN = 200  # sous ce seuil, avertissement « résolution faible » (impression à l'échelle du panneau)
 DPI_RENDU = 600  # rastérisation d'un PDF et plafond de ré-échantillonnage
 PX_MAX = 3600
+TOL_BLANC = 24  # écart au blanc toléré par canal (JPEG, anti-crénelage) pour détourer le fond
+BORD_BLANC_MIN = 0.8  # part du pourtour qui doit être (quasi) blanche pour détourer
+MARGE_ROGNAGE = 0.02  # marge laissée autour du contenu, en part de son grand côté (2 px au moins)
 MODULE_MIN_MM = 0.6  # module de QR plus petit : illisible une fois imprimé
 LOGOS_MAX = 3
 MAX_TEXTE = 34  # caractères de l'adresse mail et de l'adresse web imprimées (DM Mono 5,6 et 5 dans l'encadré du panneau V2)
@@ -127,8 +131,9 @@ def _raster(o: bytes, kind: str) -> Image.Image:
     return im
 
 
-def _page_pdf(o: bytes, bw: float, bh: float):
-    """Page 1 d'un PDF, rastérisée à 600 ppp à la taille d'emplacement (aucun script : pypdfium2 sans formulaires). Renvoie (image, nombre de pages)."""
+def _page_pdf(o: bytes):
+    """Page 1 d'un PDF, rastérisée en grand (3600 px sur le grand côté : le rognage qui suit garde une bonne résolution ; aucun script : pypdfium2 sans formulaires).
+    Renvoie (image, nombre de pages)."""
     import pypdfium2 as pdfium
     try:
         pdf = pdfium.PdfDocument(o)
@@ -140,9 +145,7 @@ def _page_pdf(o: bytes, bw: float, bh: float):
             w, h = page.get_size()
             if not (0 < w <= PAGE_PDF_MAX and 0 < h <= PAGE_PDF_MAX):
                 raise LogoRefuse("logo_enorme")
-            wmm, _ = ajuster(w, h, bw, bh)
-            px = min(PX_MAX, wmm / 25.4 * DPI_RENDU)
-            im = page.render(scale=px / w).to_pil().convert("RGB")  # fond blanc : un PDF de logo est un logo sur papier
+            im = page.render(scale=PX_MAX / max(w, h)).to_pil().convert("RGB")  # fond blanc : un PDF de logo est un logo sur papier
         finally:
             pdf.close()
     except LogoRefuse:
@@ -152,38 +155,60 @@ def _page_pdf(o: bytes, bw: float, bh: float):
     return im, pages
 
 
-def _fond_non_blanc(im: Image.Image) -> bool:
-    a = np.asarray(im)
-    k = max(1, min(a.shape[0], a.shape[1]) // 50)
-    anneau = np.ones(a.shape[:2], bool)
+def detourer_et_rogner(im: Image.Image):
+    """Prétraitement d'un logo raster. (a) Sans transparence et avec des bords (quasi) blancs : le fond blanc relié aux bords devient transparent (remplissage depuis les bords,
+    tolérance TOL_BLANC : les blancs intérieurs du logo ne sont pas touchés). (b) Rognage au plus près du contenu visible, petite marge. Renvoie (image RGBA, fond_transparent) ;
+    `fond_transparent` faux = le fond reste opaque (avertissement « fond non transparent »)."""
+    if im.width * im.height > 16_000_000:  # borne la mémoire : une image aussi grande est de toute façon très au-dessus de la résolution utile
+        f = (16_000_000 / (im.width * im.height)) ** 0.5
+        im = im.resize((max(1, int(im.width * f)), max(1, int(im.height * f))), Image.LANCZOS)
+    a = np.array(im.convert("RGBA"))
+    h, w = a.shape[:2]
+    k = max(1, min(h, w) // 50)
+    anneau = np.ones((h, w), bool)
     anneau[k:-k, k:-k] = False
-    px = a[anneau]
-    if px.shape[1] == 4:
-        px = px[px[:, 3] > 128]
-    return bool(len(px)) and float(px[:, :3].mean(axis=0).min()) < 235
+    transparent = bool((a[..., 3][anneau] < 128).mean() >= 0.5)
+    if not transparent:
+        blanc = (a[..., :3] >= 255 - TOL_BLANC).all(axis=2) & (a[..., 3] > 250)
+        if blanc[anneau].mean() >= BORD_BLANC_MIN:
+            _, lab = cv2.connectedComponents(blanc.astype(np.uint8), connectivity=4)
+            bord = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
+            fond = np.isin(lab, bord[bord > 0])
+            if not fond.all():  # une image entièrement blanche n'est pas détourée
+                a[fond, 3] = 0
+                transparent = True
+    vis = a[..., 3] > 16
+    if not vis.any():
+        return Image.fromarray(a), transparent
+    ys, xs = np.where(vis.any(axis=1))[0], np.where(vis.any(axis=0))[0]
+    m = max(2, round(MARGE_ROGNAGE * max(ys[-1] - ys[0] + 1, xs[-1] - xs[0] + 1)))
+    y0, y1, x0, x1 = max(0, ys[0] - m), min(h, ys[-1] + 1 + m), max(0, xs[0] - m), min(w, xs[-1] + 1 + m)
+    return Image.fromarray(a[y0:y1, x0:x1]), transparent
 
 
 def preparer_logo(o: bytes, kind: str, bw: float, bh: float) -> dict:
-    """PNG propre prêt à placer, mêmes proportions que l'original, jamais recoloré ni étiré ; `avert` : avertissements non bloquants."""
+    """PNG propre prêt à placer : fond blanc détouré et marges rognées (detourer_et_rogner), mêmes proportions que le contenu, jamais recoloré ni étiré ;
+    `avert` : avertissements non bloquants."""
     if not isinstance(o, bytes) or len(o) > LOGO_OCTETS_MAX or signature(o) != kind:
         raise LogoRefuse("logo_refuse")  # fichier déguisé, trop gros, ou type annoncé différent des octets
     avert = []
     if kind == "pdf":
-        im, pages = _page_pdf(o, bw, bh)
+        im, pages = _page_pdf(o)
         if pages > 1:
             avert.append({"code": "pdf_multipage", "pages": pages})
     else:
         im = _raster(o, kind)
+    im, transparent = detourer_et_rogner(im)
     wmm, hmm = ajuster(im.width, im.height, bw, bh)
     if kind != "pdf":
         dpi = int(im.width / (wmm / 25.4))
         if dpi < DPI_MIN:
             avert.append({"code": "resolution_faible", "dpi": dpi})
-        cible = int(wmm / 25.4 * DPI_RENDU)
-        if im.width > max(cible, 1) and im.width > 200:  # inutile au-delà de 600 ppp : fichier plus léger
-            im = im.resize((cible, max(1, round(im.height * cible / im.width))), Image.LANCZOS)
-    if _fond_non_blanc(im):
-        avert.append({"code": "fond_non_blanc"})
+    cible = int(wmm / 25.4 * DPI_RENDU)
+    if im.width > max(cible, 1) and im.width > 200:  # inutile au-delà de 600 ppp : fichier plus léger
+        im = im.resize((cible, max(1, round(im.height * cible / im.width))), Image.LANCZOS)
+    if not transparent:
+        avert.append({"code": "fond_non_blanc"})  # code historique : le texte affiché est « fond non transparent »
     if hmm < 6 or wmm < 10:
         avert.append({"code": "rapport_extreme"})
     tampon = io.BytesIO()

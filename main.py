@@ -1,5 +1,5 @@
 """Worker de traitement d'image (cahier 9.2, 13 bis.3) et d'assemblage des archives zip (9.8).
-Images d'actualités (V1.2 S3) : ré-encodage JPEG sans métadonnées. Épreuve du panneau (V1.2 S4c) : PDF et aperçu PNG (panneau.py).
+Images d'actualités (V1.2 S3) : ré-encodage JPEG sans métadonnées. Ébauche du panneau (V1.2 S4c) : PDF et aperçu PNG (panneau.py).
 Le worker VIENT CHERCHER ses tâches (fonction `worker-taches`, toutes les 10 s) : aucun port ouvert. Traitement dans un processus
 séparé (30 s max), dépôt des variantes par URL signées, rappel de `photo-processed` avec le jeton de tâche. GET /sante en local.
 Aucune clé de service ni identifiant de base. Adresses acceptées : https sur l'hôte Supabase seulement (pas de SSRF)."""
@@ -209,7 +209,7 @@ def _enfant_panneau(conn, entree):
 
 
 def produire_panneau_isole(entree: dict) -> dict:
-    """Un processus par épreuve, 60 s au plus ; le contenu des logos du client n'est décodé que là."""
+    """Un processus par ébauche, 60 s au plus ; le contenu des logos du client n'est décodé que là."""
     pere, fils = mp.get_context("spawn").Pipe(False)
     pr = mp.get_context("spawn").Process(target=_enfant_panneau, args=(fils, entree))
     pr.start()
@@ -222,7 +222,7 @@ def produire_panneau_isole(entree: dict) -> dict:
 
 
 def fabriquer_panneau(p: dict):
-    """Épreuve : logos téléchargés (URL signées courtes), PDF et aperçu déposés par URL signées, compte rendu à `worker-taches` (avertissements en codes)."""
+    """Ébauche : logos téléchargés (URL signées courtes), PDF et aperçu déposés par URL signées, compte rendu à `worker-taches` (avertissements en codes)."""
     ok, avert = False, []
     with UN_A_LA_FOIS:
         try:

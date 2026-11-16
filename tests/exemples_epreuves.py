@@ -1,5 +1,5 @@
-"""Logos synthétiques (large, carré, étroit) et épreuves d'exemple du panneau : sert aux tests et aux captures de la recette (V1.2 S4c).
-Usage : python worker/tests/exemples_epreuves.py <dossier de sortie>   (écrit les 3 logos et les 3 épreuves en PNG et PDF)."""
+"""Logos synthétiques (large, carré, étroit) et ébauches d'exemple du panneau : sert aux tests et aux captures de la recette (V1.2 S4c).
+Usage : python worker/tests/exemples_epreuves.py <dossier de sortie>   (écrit les 3 logos et les 3 ébauches en PNG et PDF)."""
 import io
 import json
 import sys
