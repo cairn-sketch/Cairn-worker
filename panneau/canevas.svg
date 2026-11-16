@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="206mm" height="346mm" viewBox="-3 -3 206 346">
+<title>Cairn — panneau {{CODE}}</title>
+<g id="Impression">
+<rect x="-3" y="-3" width="206" height="346" fill="#F6F3EA"/>
+<rect x="-3" y="-3" width="206" height="107" fill="#28364A"/>
+<g transform="translate(-5.439 -1.193) scale(0.09541)"><path fill="#F6F3EA" d="M280.86 214.28Q280.86 221.04 275.89 225.75Q270.92 230.47 262.62 230.47Q254.52 230.47 250.37 226.11Q246.21 221.76 246.21 214.89V211.71Q246.21 204.84 242.73 200.8Q239.24 196.75 233.3 196.75Q228.28 196.75 224.13 199.98Q219.97 203.2 217.51 209.61Q215.05 216.02 215.05 225.24Q215.05 237.65 219.26 246.05Q223.46 254.46 230.84 258.76Q238.22 263.06 247.65 263.06Q255.34 263.06 261.23 260.5Q267.12 257.94 271.63 252.41Q273.99 250.05 275.32 249.23Q276.66 248.41 277.99 248.41Q279.83 248.41 280.71 250.15Q281.58 251.89 281.58 254.46Q281.27 263.27 275.43 270.91Q269.58 278.54 259.39 283.1Q249.19 287.67 235.86 287.67Q220.59 287.67 208.6 281.51Q196.6 275.37 189.69 264.3Q182.77 253.22 182.77 238.47Q182.77 222.99 189.53 210.69Q196.3 198.39 208.65 191.31Q221 184.24 237.81 184.24Q251.13 184.24 260.77 188.29Q270.4 192.34 275.63 199.16Q280.86 205.97 280.86 214.28Z M351.02 271.37V269.11L348.45 268.91V205.25Q348.45 199.72 345.53 196.54Q342.61 193.37 337.49 193.37Q333.18 193.37 330.52 195.31Q327.85 197.26 327.85 200.13V210.28Q327.85 217.66 322.88 221.71Q317.91 225.75 308.69 225.75Q300.79 225.75 296.85 222.27Q292.9 218.79 292.9 212.63Q292.9 205.97 298.64 199.46Q304.38 192.96 315.76 188.65Q327.13 184.35 344.15 184.35Q364.44 184.35 374.34 192.19Q384.23 200.03 384.23 213.35V264.5Q384.23 266.86 385.3 268.24Q386.38 269.62 388.53 269.62Q390.48 269.62 391.56 268.6Q392.63 267.57 393.56 266.65Q394.17 265.94 394.89 265.42Q395.61 264.91 396.53 264.91Q398.06 264.91 398.78 266.04Q399.5 267.17 399.5 268.91Q399.5 272.9 396.63 277.26Q393.76 281.62 388.12 284.64Q382.49 287.67 374.08 287.67Q363.83 287.67 357.42 283.21Q351.02 278.75 351.02 271.37ZM288.9 263.37Q288.9 249.94 301 241.9Q313.09 233.85 334.82 233.85Q341.18 233.85 346.15 234.83Q351.12 235.8 354.5 237.54L351.63 245.33Q348.76 243.9 346.05 243.18Q343.33 242.46 340.05 242.46Q333.28 242.46 329.44 246.31Q325.6 250.15 325.6 257.12Q325.6 264.19 329.03 267.93Q332.46 271.68 338.1 271.68Q342.31 271.68 346.2 269.73Q350.1 267.78 352.45 264.6L354.81 271.68Q349.58 279.36 340.1 283.51Q330.62 287.67 319.96 287.67Q306.02 287.67 297.46 280.85Q288.9 274.03 288.9 263.37Z M543.86 229.86Q543.86 214.48 548.06 204.33Q552.26 194.19 559.08 189.21Q565.89 184.24 573.89 184.24Q584.24 184.24 589.83 190.29Q595.41 196.34 595.41 208.12Q595.41 219.4 590.85 224.83Q586.29 230.26 578.91 230.26Q571.53 230.26 567.74 226.42Q563.95 222.58 563.95 215.71V211.61Q563.85 208.74 562.56 207.25Q561.28 205.77 558.51 205.77Q555.75 205.77 553.29 208.12Q550.83 210.48 549.29 215.5Q547.75 220.53 547.75 228.73ZM545.5 192.44 547.75 214.69V265.83Q547.75 269.11 548.83 270.55Q549.9 271.98 553.39 272.6L561.59 274.13Q564.36 274.65 565.69 275.98Q567.02 277.31 567.02 279.67Q567.02 282.23 565.28 283.62Q563.54 285 560.15 285H507.88Q504.29 285 502.7 283.62Q501.12 282.23 501.12 279.77Q501.12 277.93 502.09 276.6Q503.06 275.26 505.22 274.44L508.39 273.42Q510.03 272.7 510.8 271.11Q511.57 269.52 511.57 265.94V212.94Q511.57 209.97 510.75 208.69Q509.93 207.41 508.09 207L504.29 206.49Q502.24 205.87 501.37 204.74Q500.5 203.62 500.5 201.87Q500.5 199.72 501.73 198.44Q502.96 197.16 506.04 196.03L526.33 188.34Q532.48 185.88 535.3 185.16Q538.12 184.45 539.65 184.45Q542.22 184.45 543.55 186.29Q544.88 188.14 545.5 192.44Z M645.89 192.44V265.83Q645.89 269.52 646.66 271.11Q647.43 272.7 649.17 273.42L652.04 274.55Q655.32 276.19 655.32 279.46Q655.32 285 648.46 285H606.02Q602.43 285 600.84 283.62Q599.25 282.23 599.25 279.77Q599.25 277.93 600.23 276.6Q601.2 275.26 603.36 274.44L606.53 273.42Q608.17 272.7 608.94 271.11Q609.71 269.52 609.71 265.94V212.63Q609.71 209.66 608.89 208.38Q608.07 207.1 606.23 206.69L602.43 206.18Q600.38 205.56 599.51 204.44Q598.64 203.31 598.64 201.56Q598.64 199.41 599.82 198.18Q601 196.95 604.17 195.72L624.98 187.83Q629.6 186.09 632.41 185.27Q635.23 184.45 637.9 184.45Q641.79 184.45 643.84 186.7Q645.89 188.96 645.89 192.44ZM642.51 216.43 636.98 210.69 640.56 207.41Q654.3 194.9 664.04 189.57Q673.77 184.24 682.28 184.24Q695.3 184.24 702.63 193.06Q709.96 201.87 711.29 216.22L716.41 265.73Q716.82 269.52 717.44 271.11Q718.05 272.7 719.79 273.42L722.77 274.44Q724.92 275.26 725.89 276.6Q726.87 277.93 726.87 279.77Q726.87 282.23 725.28 283.62Q723.69 285 720.1 285H677.15Q670.29 285 670.29 279.46Q670.29 276.19 673.67 274.55L676.54 273.42Q678.38 272.7 679.31 271.06Q680.23 269.42 679.82 265.73L675.21 221.45Q674.39 213.66 671.36 209.77Q668.34 205.87 662.29 205.87Q658.5 205.87 654.45 207.72Q650.4 209.56 646.3 213.05Z"/><g transform="translate(450 285)"><g stroke="#F6F3EA" stroke-width="5.5" stroke-linejoin="round" fill="none"><ellipse cx="0" cy="-16" rx="37" ry="15"/><ellipse cx="0" cy="-46" rx="30" ry="13"/><ellipse cx="0" cy="-69" rx="38" ry="9"/><ellipse cx="0" cy="-91" rx="23" ry="12"/></g><ellipse cx="0" cy="-128" rx="16" ry="14" fill="#F7D9A8"/></g></g>
+<clipPath id="vue"><rect x="16" y="33" width="168" height="26" rx="2"/></clipPath>
+<g clip-path="url(#vue)">
+<rect x="16" y="33" width="168" height="26" fill="#BADCF0"/>
+<circle cx="140.32" cy="41.6" r="4.4" fill="#F7D9A8"/>
+<g transform="translate(0 33) scale(1 0.7879) translate(0 -33)">
+<path d="M16 55 L34 46 L46 51 L68 39 L82 47 L96 42 L120 52 L138 45 L162 54 L184 48 V66 H16 Z" fill="#D9CFEA"/>
+<path d="M61.6 42.5 L68 39 L74.8 42.9 L71 42.2 L68 44 L65 42 Z" fill="#F6F3EA"/>
+<path d="M16 58 C46 52 68 55 96 58 S146 52 184 56 V66 H16 Z" fill="#C4DDB8"/>
+<path d="M16 63 C56 60 106 61.5 184 64 V66 H16 Z" fill="#F6F3EA"/>
+<g fill="#28364A"><ellipse cx="44" cy="61.3" rx="3.2" ry="1.25"/><ellipse cx="44" cy="59.2" rx="2.4" ry="1.05"/><ellipse cx="44" cy="57.5" rx="1.6" ry=".85"/><ellipse cx="44" cy="56.1" rx="1" ry=".7" fill="#F7D9A8"/></g>
+</g></g>
+<path d="M13.5 37.5 V30.5 H20.5 M179.5 30.5 H186.5 V37.5 M186.5 54.5 V61.5 H179.5 M20.5 61.5 H13.5 V54.5" fill="none" stroke="#F6F3EA" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="12.000" y="79.500" font-family="Figtree" font-weight="800" font-size="15" fill="#F6F3EA" letter-spacing="-0.25">Station photo</text>
+<text x="12.000" y="88.400" font-family="Figtree" font-weight="600" font-size="6.4" fill="#F6F3EA">Ajoute ta pierre à l’édifice :</text>
+<text x="12.000" y="95.600" font-family="Figtree" font-weight="600" font-size="6.4" fill="#F6F3EA">ta photo aide à suivre l’évolution de ce lieu.</text>
+<text x="12.000" y="101.400" font-family="Figtree" font-weight="500" font-size="4.4" fill="#BADCF0">Photo station — add your stone: your photo helps track how this place changes.</text>
+<rect x="-3" y="104" width="206" height="30" fill="#F7D9A8"/>
+<text x="12.000" y="111.000" font-family="DM Mono" font-weight="500" font-size="3.6" fill="#28364A" letter-spacing="0.35">N° DE CE CAIRN</text>
+<text x="10.800" y="129.400" font-family="DM Mono" font-weight="500" font-size="24" fill="#28364A" letter-spacing="0.4">{{CODE}}</text>
+<text x="188.000" y="121.000" font-family="DM Mono" font-weight="500" font-size="3.8" fill="#28364A" text-anchor="end" letter-spacing="0.3">À ÉCRIRE EN</text>
+<text x="188.000" y="126.200" font-family="DM Mono" font-weight="500" font-size="3.8" fill="#28364A" text-anchor="end" letter-spacing="0.3">OBJET DU MAIL</text>
+<path d="M150.76 123.6 H121.2 M124.2 121 L121.2 123.6 L124.2 126.2" fill="none" stroke="#28364A" stroke-width=".6" stroke-linecap="round" stroke-linejoin="round"/>
+<g transform="translate(12 141.0)"><rect width="26" height="26" rx="4" fill="#BADCF0"/><path d="M5 15.5 V21 H21.5" fill="none" stroke="#28364A" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/><rect x="4.1" y="20.4" width="18.6" height="2.4" rx=".9" fill="#F6F3EA" stroke="#28364A" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/><rect x="20" y="13" width="2.7" height="8.4" rx=".8" fill="#F7D9A8" stroke="#28364A" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/><rect x="4.3" y="10.6" width="15.4" height="9" rx="1.8" fill="#28364A"/><rect x="5.4" y="11.7" width="11.8" height="6.8" rx=".8" fill="#F6F3EA"/><circle cx="18.45" cy="15.1" r=".55" fill="#F6F3EA"/><path d="M12 3.6 V8.2 M9.8 6.2 L12 8.4 L14.2 6.2" fill="none" stroke="#28364A" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/></g>
+<circle cx="48.4" cy="146.6" r="3.4" fill="#28364A"/>
+<text x="48.400" y="148.250" font-family="DM Mono" font-weight="500" font-size="4.6" fill="#F6F3EA" text-anchor="middle">1</text>
+<text x="54.600" y="150.100" font-family="Figtree" font-weight="800" font-size="9.6" fill="#28364A" letter-spacing="-0.12">Pose</text>
+<text x="45.000" y="158.600" font-family="Figtree" font-weight="600" font-size="7" fill="#28364A">Téléphone à l’horizontale, contre la butée.</text>
+<text x="45.000" y="165.000" font-family="Figtree" font-weight="500" font-size="5" fill="#5A677A">Phone sideways, against the stop.</text>
+<g transform="translate(12 170.5)"><rect width="26" height="26" rx="4" fill="#BADCF0"/><rect x="3.2" y="7.5" width="19.6" height="11.2" rx="1.8" fill="#28364A"/><rect x="4.4" y="8.7" width="15.6" height="8.8" rx=".7" fill="#BADCF0"/><path d="M4.4 17.5 L8.6 12.6 L11.2 15 L14.6 10.9 L20 17.5 Z" fill="#C4DDB8"/><circle cx="8" cy="11.3" r="1.05" fill="#F7D9A8"/><circle cx="21.5" cy="13.1" r=".9" fill="#F6F3EA"/><circle cx="20.4" cy="6.4" r="4" fill="#F7D9A8" stroke="#28364A" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/></g>
+<text x="32.400" y="178.200" font-family="Figtree" font-weight="800" font-size="3.6" fill="#28364A" text-anchor="middle">×1</text>
+<circle cx="48.4" cy="176.1" r="3.4" fill="#28364A"/>
+<text x="48.400" y="177.750" font-family="DM Mono" font-weight="500" font-size="4.6" fill="#F6F3EA" text-anchor="middle">2</text>
+<text x="54.600" y="179.600" font-family="Figtree" font-weight="800" font-size="9.6" fill="#28364A" letter-spacing="-0.12">Photographie</text>
+<text x="45.000" y="188.100" font-family="Figtree" font-weight="600" font-size="7" fill="#28364A">Sans zoomer : le paysage tel qu’il est.</text>
+<text x="45.000" y="194.500" font-family="Figtree" font-weight="500" font-size="5" fill="#5A677A">No zoom. The scene as it is today.</text>
+<g transform="translate(12 200.0)"><rect width="26" height="26" rx="4" fill="#BADCF0"/><rect x="7.2" y="8.6" width="15" height="10.4" rx="1.2" fill="#F6F3EA" stroke="#28364A" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M7.8 9.4 L14.7 14.6 L21.6 9.4" fill="none" stroke="#28364A" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M2.6 11.2 H5.2 M3.6 14 H5.4 M2.6 16.8 H5.2" fill="none" stroke="#28364A" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/><circle cx="21.6" cy="18.4" r="3.6" fill="#F7D9A8" stroke="#28364A" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/><path d="M20 18.5 L21.2 19.7 L23.3 17.3" fill="none" stroke="#28364A" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/></g>
+<circle cx="48.4" cy="205.6" r="3.4" fill="#28364A"/>
+<text x="48.400" y="207.250" font-family="DM Mono" font-weight="500" font-size="4.6" fill="#F6F3EA" text-anchor="middle">3</text>
+<text x="54.600" y="209.100" font-family="Figtree" font-weight="800" font-size="9.6" fill="#28364A" letter-spacing="-0.12">Envoie</text>
+<text x="45.000" y="217.600" font-family="Figtree" font-weight="600" font-size="7" fill="#28364A">Scanne le code, envoie en taille réelle.</text>
+<text x="45.000" y="224.000" font-family="Figtree" font-weight="500" font-size="5" fill="#5A677A">Scan, then send at actual size.</text>
+<rect x="10" y="233.0" width="180" height="48" rx="5" fill="#28364A"/>
+<rect x="15" y="236.0" width="42" height="42" rx="3" fill="#FFFCF4"/>
+<g id="qr" transform="translate(19.0 240.0)" fill="#28364A" data-cote="34">{{QR}}</g>
+<text x="63.000" y="242.000" font-family="DM Mono" font-weight="500" font-size="3.6" fill="#BADCF0" letter-spacing="0.35">SCANNE, OU ÉCRIS À</text>
+<text x="63.000" y="249.800" font-family="DM Mono" font-weight="500" font-size="5.6" fill="#F6F3EA">{{MAIL}}</text>
+<text x="63.000" y="259.000" font-family="Figtree" font-weight="600" font-size="6.6" fill="#F6F3EA">Objet :</text>
+<text x="85.818" y="259.000" font-family="DM Mono" font-weight="500" font-size="7.4" fill="#F7D9A8" letter-spacing="0.2">{{CODE}}</text>
+<path d="M63 264.0 H184" stroke="#5A677A" stroke-width=".35"/>
+<text x="63.000" y="269.600" font-family="Figtree" font-weight="500" font-size="4.4" fill="#BADCF0">Pas de réseau ? Le mail partira plus tard.</text>
+<text x="63.000" y="275.600" font-family="Figtree" font-weight="500" font-size="4.4" fill="#BADCF0">Le timelapse :</text>
+<text x="91.906" y="275.600" font-family="DM Mono" font-weight="500" font-size="4.4" fill="#F6F3EA">{{URL}}</text>
+<text x="12.000" y="287.500" font-family="DM Mono" font-weight="500" font-size="3.6" fill="#5A677A" letter-spacing="0.35">INSTALLÉ AVEC</text>
+<rect x="-3" y="312" width="206" height="31" fill="#28364A"/>
+<text x="12.000" y="327.600" font-family="Figtree" font-weight="600" font-size="5" fill="#F6F3EA">{{HOTE}}</text>
+<text x="188.000" y="325.400" font-family="DM Mono" font-weight="500" font-size="3.2" fill="#BADCF0" text-anchor="end" letter-spacing="0.3">PHOTOS EN LIBRE ACCÈS</text>
+<text x="188.000" y="329.800" font-family="DM Mono" font-weight="500" font-size="3.2" fill="#BADCF0" text-anchor="end" letter-spacing="0.3">CONDITIONS SUR LE SITE</text>
+<g transform="translate(100 332.5)" fill="#F6F3EA"><ellipse cx="0" cy="0" rx="4.2" ry="1.6"/><ellipse cx="0" cy="-3" rx="3.2" ry="1.4"/><ellipse cx="0" cy="-5.6" rx="2.2" ry="1.15"/><ellipse cx="0" cy="-7.8" rx="1.35" ry=".95" fill="#F7D9A8"/></g>
+<circle cx="75" cy="20" r="4.6" fill="none" stroke="#F6F3EA" stroke-width=".35" opacity=".55"/>
+<circle cx="125" cy="20" r="4.6" fill="none" stroke="#F6F3EA" stroke-width=".35" opacity=".55"/>
+<circle cx="75" cy="320" r="4.6" fill="none" stroke="#F6F3EA" stroke-width=".35" opacity=".55"/>
+<circle cx="125" cy="320" r="4.6" fill="none" stroke="#F6F3EA" stroke-width=".35" opacity=".55"/>
+</g>
+<g id="logos" transform="translate(12 290.0)" data-largeur="176" data-hauteur="19.00" data-marge="4" data-marge-y="1.5">{{LOGOS}}</g>
+
+</svg>

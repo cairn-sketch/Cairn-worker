@@ -1,5 +1,5 @@
 """Worker de traitement d'image (cahier 9.2, 13 bis.3) et d'assemblage des archives zip (9.8).
-Images d'actualités (V1.2 S3) : ré-encodage JPEG sans métadonnées.
+Images d'actualités (V1.2 S3) : ré-encodage JPEG sans métadonnées. Épreuve du panneau (V1.2 S4c) : PDF et aperçu PNG (panneau.py).
 Le worker VIENT CHERCHER ses tâches (fonction `worker-taches`, toutes les 10 s) : aucun port ouvert. Traitement dans un processus
 séparé (30 s max), dépôt des variantes par URL signées, rappel de `photo-processed` avec le jeton de tâche. GET /sante en local.
 Aucune clé de service ni identifiant de base. Adresses acceptées : https sur l'hôte Supabase seulement (pas de SSRF)."""
@@ -32,10 +32,10 @@ def url_permise(u) -> bool:
     return bool(p and p.scheme == "https" and HOTE and p.hostname == HOTE and not p.username)
 
 
-def telecharger(u: str) -> bytes:
+def telecharger(u: str, maxi: int = TAILLE_MAX, refuser: bool = True) -> bytes:
     with urllib.request.urlopen(u, timeout=20) as r:
-        d = r.read(TAILLE_MAX + 1)
-    if len(d) > TAILLE_MAX:
+        d = r.read(maxi + 1)
+    if refuser and len(d) > maxi:
         raise ValueError("trop gros")
     return d
 
@@ -182,10 +182,71 @@ def reencoder_media(m: dict):
             print(json.dumps({"erreur": "rappel_media"}), flush=True)
 
 
+LOGO_MAX = 5 * 1024 * 1024
+TYPES_LOGO = ("png", "jpg", "pdf")
+DELAI_PANNEAU = 60
+
+
+def panneau_valide(p) -> bool:
+    """Forme seulement (adresses permises, types fermés) ; le contenu (code, adresses, QR, logos) est contrôlé dans panneau.py, dans un processus isolé."""
+    if not isinstance(p, dict) or not isinstance(p.get("id"), str) or isinstance(p.get("gen"), bool) or not isinstance(p.get("gen"), int):
+        return False
+    if not url_permise(p.get("upload_pdf")) or not url_permise(p.get("upload_png")) or not isinstance(p.get("code"), str):
+        return False
+    logos = p.get("logos")
+    return isinstance(logos, list) and len(logos) <= 3 and all(isinstance(l, dict) and l.get("kind") in TYPES_LOGO and url_permise(l.get("url")) for l in logos)
+
+
+def _enfant_panneau(conn, entree):
+    try:
+        import panneau
+        try:
+            conn.send(panneau.produire(entree))
+        except panneau.CanevasInvalide as e:
+            conn.send({"erreur": "canevas_invalide", "detail": str(e)[:200]})
+    except Exception:
+        conn.send({"erreur": "erreur_traitement"})
+
+
+def produire_panneau_isole(entree: dict) -> dict:
+    """Un processus par épreuve, 60 s au plus ; le contenu des logos du client n'est décodé que là."""
+    pere, fils = mp.get_context("spawn").Pipe(False)
+    pr = mp.get_context("spawn").Process(target=_enfant_panneau, args=(fils, entree))
+    pr.start()
+    if pere.poll(DELAI_PANNEAU):
+        res = pere.recv()
+        pr.join(5)
+        return res
+    pr.kill()
+    return {"erreur": "delai"}
+
+
+def fabriquer_panneau(p: dict):
+    """Épreuve : logos téléchargés (URL signées courtes), PDF et aperçu déposés par URL signées, compte rendu à `worker-taches` (avertissements en codes)."""
+    ok, avert = False, []
+    with UN_A_LA_FOIS:
+        try:
+            logos = [{"octets": telecharger(l["url"], LOGO_MAX, False), "kind": l["kind"]} for l in p["logos"]]
+            res = produire_panneau_isole({"code": p["code"], "mail": p.get("mail"), "url": p.get("url"), "qr": p.get("qr"), "logos": logos})
+            if "pdf" in res:
+                requete(p["upload_pdf"], "PUT", res["pdf"], "application/pdf")
+                requete(p["upload_png"], "PUT", res["png"], "image/png")
+                ok, avert = True, res["avertissements"]
+            else:
+                avert = [{"code": res["erreur"]}] if res["erreur"] == "canevas_invalide" else []
+                print(json.dumps({"erreur": "panneau", "cause": res["erreur"], "detail": res.get("detail")}), flush=True)
+        except Exception:  # aucune donnée de logo dans les journaux
+            print(json.dumps({"erreur": "panneau"}), flush=True)
+        try:
+            requete(f"{FONCTIONS}/worker-taches", "POST", json.dumps({"panneau_fini": p["id"], "gen": p["gen"], "ok": ok, "avertissements": avert}).encode(), "application/json", SECRET)
+        except Exception:
+            print(json.dumps({"erreur": "rappel_panneau"}), flush=True)
+
+
 def boucle():
     while True:
         try:
-            req = urllib.request.Request(f"{FONCTIONS}/worker-taches", b'{"zip": true, "media": true}', {"Authorization": f"Bearer {SECRET}", "Content-Type": "application/json"}, method="POST")
+            req = urllib.request.Request(f"{FONCTIONS}/worker-taches", b'{"zip": true, "media": true, "panneau": true}', {"Authorization": f"Bearer {SECRET}", "Content-Type": "application/json"}, method="POST")
             with urllib.request.urlopen(req, timeout=30) as r:
                 if r.status == 200:
                     reponse = json.loads(r.read(100_000))
@@ -194,6 +255,9 @@ def boucle():
                         continue  # enchaîner tant qu'il y a des photos
                     if media_valide(reponse.get("media")):
                         reencoder_media(reponse["media"])
+                        continue
+                    if panneau_valide(reponse.get("panneau")):
+                        fabriquer_panneau(reponse["panneau"])
                         continue
                     if zip_valide(reponse.get("zip")):
                         archiver(reponse["zip"])
