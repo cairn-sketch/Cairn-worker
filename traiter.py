@@ -147,3 +147,12 @@ def traiter(original: bytes, reference: bytes | None = None, seuils: dict | None
                 im, scores["alignment_score"] = aligner(im, ref, s)
     im = recadrer(im)
     return {"status": statut, "reasons": motifs, "scores": scores, "variants": variantes(im), "width": 1600, "height": 1200}
+
+
+def reencoder(octets: bytes, cote_max: int = 1600) -> bytes:
+    """Image d'actualité (V1.2 S3) : décodée puis recréée en JPEG (orientation appliquée, EXIF, GPS et profils effacés), côté long limité."""
+    im = decoder(octets)
+    im.thumbnail((cote_max, cote_max), Image.LANCZOS)
+    b = io.BytesIO()
+    im.save(b, "JPEG", quality=82, optimize=True, progressive=True)  # aucun paramètre exif= ni icc_profile= : rien n'est recopié
+    return b.getvalue()

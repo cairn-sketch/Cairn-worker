@@ -97,3 +97,29 @@ def test_heic_decode():
     import pillow_heif
     b = io.BytesIO(); pillow_heif.from_pillow(scene()).save(b); 
     assert t.traiter(b.getvalue(), visages=SANS_VISAGE)["status"] == "accepted"
+
+
+def test_reencoder_efface_exif_gps_et_applique_l_orientation():
+    """Image d'actualité (V1.2 S3) : aucune métadonnée ne survit, orientation appliquée, taille limitée, sortie JPEG."""
+    im = scene(w=2400, h=1200)
+    exif = Image.Exif()
+    exif[0x010F] = "Marque-secrete"          # fabricant
+    exif[0x0112] = 6                          # orientation : 90° → l'image doit être tournée
+    gps = exif.get_ifd(0x8825)
+    gps[1], gps[2], gps[3], gps[4] = "N", (43.0, 3.0, 0.0), "E", (0.0, 5.0, 0.0)   # position GPS
+    source = octets(im, exif=exif, icc_profile=b"profil-bidon")
+    assert b"Marque-secrete" in source
+    sortie = t.reencoder(source)
+    assert sortie[:3] == b"\xff\xd8\xff"
+    for secret in (b"Marque-secrete", b"Exif", b"profil-bidon", b"ICC_PROFILE"):
+        assert secret not in sortie
+    res = Image.open(io.BytesIO(sortie))
+    assert not res.getexif() and "icc_profile" not in res.info
+    assert max(res.size) <= 1600
+    assert res.size[1] > res.size[0]  # tournée par l'orientation EXIF (2400×1200 → portrait)
+
+
+def test_reencoder_refuse_ce_qui_n_est_pas_une_image():
+    for faux in (b"", b"<svg onload=alert(1)/>", b"%PDF-1.4", b"x" * 1000):
+        with pytest.raises(t.Illisible):
+            t.reencoder(faux)

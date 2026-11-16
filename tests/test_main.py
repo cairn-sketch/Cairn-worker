@@ -1,5 +1,5 @@
 """Tests de l'interface /process : jeton, adresses permises, tâche valide (aucun réseau)."""
-import importlib, sys
+import importlib, json, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -44,3 +44,66 @@ def test_delai_depasse_envoie_en_revue(monkeypatch):
     monkeypatch.setattr(m, "DELAI_TRAITEMENT", 0.01)
     r = m.traiter_isole(b"x", None)
     assert (r["status"], r["reasons"]) == ("pending", ["delai"])
+
+
+def test_archive(monkeypatch):
+    import io, zipfile
+    m = charger(monkeypatch)
+    u = "https://exemple.supabase.co/storage/v1/object/"
+    z = {"id": "j1", "dossier": "TST001", "upload_url": u + "upload/sign/archives/TST001.zip?token=x",
+         "fichiers": [{"nom": "TST001-001_2026-11-01.jpg", "url": u + "public/media/a.jpg"}, {"nom": "TST001-002_2026-11-02.jpg", "url": u + "public/media/b.jpg"}],
+         "textes": {"manifest.csv": "cairn,pierre\n", "LISEZMOI.txt": "é"}}
+    assert m.zip_valide(z)
+    # noms piégés (sortie du dossier), adresses hors de l'hôte, dépôt ailleurs : refusés
+    assert not m.zip_valide({**z, "fichiers": [{"nom": "../../etc/passwd", "url": u + "x"}]})
+    assert not m.zip_valide({**z, "fichiers": [{"nom": "a.jpg", "url": "https://evil.example/a.jpg"}]})
+    assert not m.zip_valide({**z, "upload_url": "https://evil.example/u"})
+    assert not m.zip_valide({**z, "dossier": "../x"})
+    assert not m.zip_valide({**z, "textes": {"../x": "a"}})
+    assert not m.zip_valide({**z, "fichiers": []})
+    monkeypatch.setattr(m, "telecharger", lambda url: b"image-" + url[-5:].encode())
+    a = zipfile.ZipFile(io.BytesIO(m.assembler_zip(z)))
+    assert sorted(a.namelist()) == ["TST001/LISEZMOI.txt", "TST001/TST001-001_2026-11-01.jpg", "TST001/TST001-002_2026-11-02.jpg", "TST001/manifest.csv"]
+    assert a.read("TST001/TST001-001_2026-11-01.jpg") == b"image-a.jpg" and a.read("TST001/LISEZMOI.txt").decode() == "é"
+    # archive trop grosse : abandon, et le compte rendu dit « échec »
+    monkeypatch.setattr(m, "ZIP_MAX", 5)
+    envois = []
+    monkeypatch.setattr(m, "requete", lambda url, methode, corps, type_, jeton=None, delai=30: envois.append((url, corps)))
+    m.archiver(z)
+    assert len(envois) == 1 and envois[0][0].endswith("/worker-taches") and b'"ok": false' in envois[0][1]
+
+
+def test_tache_image_d_actualite(monkeypatch):
+    m = charger(monkeypatch)
+    u = "https://exemple.supabase.co/s/"
+    assert m.media_valide({"id": "m1", "original_url": u + "o", "upload_url": u + "u"})
+    assert not m.media_valide({"id": "m1", "original_url": "https://evil.example/o", "upload_url": u + "u"})
+    assert not m.media_valide({"id": "m1", "original_url": u + "o", "upload_url": "http://exemple.supabase.co/u"})
+    assert not m.media_valide({"original_url": u + "o", "upload_url": u + "u"})
+    assert not m.media_valide(None)
+
+
+def test_image_d_actualite_de_bout_en_bout(monkeypatch):
+    """Téléchargement simulé → ré-encodage isolé → dépôt de la seule image JPEG → compte rendu « ok »."""
+    m = charger(monkeypatch)
+    from test_traiter import scene, octets
+    from PIL import Image
+    exif = Image.Exif(); exif[0x010F] = "Marque-secrete"
+    envois = []
+    monkeypatch.setattr(m, "telecharger", lambda u: octets(scene(), exif=exif))
+    monkeypatch.setattr(m, "requete", lambda u, meth, corps, type_, jeton=None, delai=30: envois.append((u, meth, corps, type_)))
+    u = "https://exemple.supabase.co/s/"
+    m.reencoder_media({"id": "m1", "original_url": u + "o", "upload_url": u + "u"})
+    depot, rappel = envois
+    assert depot[0] == u + "u" and depot[1] == "PUT" and depot[3] == "image/jpeg" and depot[2][:3] == b"\xff\xd8\xff" and b"Marque-secrete" not in depot[2]
+    assert json.loads(rappel[2]) == {"media_fini": "m1", "ok": True}
+
+
+def test_image_d_actualite_illisible_signalee_en_erreur(monkeypatch):
+    m = charger(monkeypatch)
+    envois = []
+    monkeypatch.setattr(m, "telecharger", lambda u: b"<svg onload=alert(1)/>")
+    monkeypatch.setattr(m, "requete", lambda u, meth, corps, type_, jeton=None, delai=30: envois.append((u, corps)))
+    u = "https://exemple.supabase.co/s/"
+    m.reencoder_media({"id": "m2", "original_url": u + "o", "upload_url": u + "u"})
+    assert len(envois) == 1 and json.loads(envois[0][1]) == {"media_fini": "m2", "ok": False}   # rien n'est déposé
