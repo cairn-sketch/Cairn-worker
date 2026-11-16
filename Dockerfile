@@ -1,4 +1,4 @@
-# Worker de traitement d'image (9.2, 13 bis.3) et d'épreuve de panneau (V1.2 S4c) — conteneur sans privilège, sans identifiant de base.
+# Worker de traitement d'image (9.2, 13 bis.3) et d'ébauche de panneau (V1.2 S4c) — conteneur sans privilège, sans identifiant de base.
 FROM python:3.12-slim
 # rsvg-convert (librsvg) : SVG → PDF vectoriel et aperçu PNG du panneau, sur le seul modèle du dépôt (aucune adresse lue).
 RUN apt-get update && apt-get install -y --no-install-recommends librsvg2-bin && rm -rf /var/lib/apt/lists/*
