@@ -170,7 +170,7 @@ def test_autre_canevas_meme_code(tmp_path):
     r = panneau.produire(tache(logos=[(logo_carre(), "png")]), f)
     d = pdfium.PdfDocument(r["pdf"])
     assert round(d[0].get_size()[0] * 25.4 / 72) == 100
-    assert d[0].get_textpage().get_text_range().count("PYR001") == 2
+    assert d[0].get_textpage().get_text_range().count("PYR001") == 3  # deux {{CODE}} + le code dans l'adresse web (tout tient dans la ligne avec l'adresse courte)
     assert r["avertissements"] == []
 
 
