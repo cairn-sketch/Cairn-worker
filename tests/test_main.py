@@ -33,10 +33,14 @@ def test_tache(monkeypatch):
 
 
 def test_traitement_isole_de_bout_en_bout(monkeypatch):
+    import os, cv2, pytest
+    if not os.path.exists(os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")):
+        pytest.skip("modèle de détection des visages absent de cet environnement (présent dans l'image du worker)")
     m = charger(monkeypatch)
     from test_traiter import scene, octets
     r = m.traiter_isole(octets(scene()), None)
-    assert r["status"] in ("accepted", "rejected") and (r["status"] != "accepted" or len(r["variants"]) == 7)
+    # Doute → revue manuelle avec les variantes (décision du 24/11) ; seul un refus n'en a pas.
+    assert r["status"] in ("accepted", "pending", "rejected") and (r["status"] == "rejected" or len(r["variants"]) == 7)
 
 
 def test_delai_depasse_envoie_en_revue(monkeypatch):
