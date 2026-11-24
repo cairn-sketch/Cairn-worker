@@ -19,7 +19,8 @@ SEUILS = {
     "flou": 60.0,           # variance du laplacien (image ramenée à 800 px de large) en dessous de laquelle la photo est floue
     "sombre": 28.0,         # luminance moyenne (0-255) en dessous de laquelle la photo est trop sombre
     "visage": 0.07,         # largeur d'un visage (part de la largeur de l'image) à partir de laquelle il est reconnaissable
-    "hors_cadre": 0.25,     # similarité de contours minimale avec la référence
+    "hors_cadre": 0.25,     # similarité de contours minimale avec la référence (en dessous : revue manuelle)
+    "hors_sujet": 0.06,     # en dessous : la photo ne montre pas du tout le paysage du cairn, refusée (seul refus sur le cadre)
     "rotation": 3.0, "echelle": 0.05, "decalage": 0.04,  # limites de l'alignement (9.2 étape 4)
 }
 TAILLES = (640, 1280, 1600)
@@ -139,10 +140,14 @@ def traiter(original: bytes, reference: bytes | None = None, seuils: dict | None
     lap = float(cv2.Laplacian(g, cv2.CV_64F).var())
     lum = float(g.mean())
     scores = {"quality_score": round(min(1.0, lap / (2 * s["flou"])), 3), "alignment_score": None, "has_faces": False}
+    # Refus d'office (la personne reçoit le motif et peut renvoyer une photo ; la photo reste récupérable dans « Refusées ») : image illisible,
+    # trop sombre, floue, visage si le lieu les refuse, ou sans rapport avec le paysage du cairn. Revue manuelle seulement quand l'outil
+    # ne sait pas faire son travail : cadre incertain, alignement impossible (consigne du porteur, 24/11 : pas de travail en plus pour rien).
+    statut, motifs = "accepted", []
     if lum < s["sombre"]:
-        return {"status": "rejected", "reasons": ["trop_sombre"], "scores": scores, "variants": {}}
-    if lap < s["flou"]:
-        return {"status": "rejected", "reasons": ["floue"], "scores": scores, "variants": {}}
+        statut, motifs = "rejected", ["trop_sombre"]
+    elif lap < s["flou"]:
+        statut, motifs = "rejected", ["floue"]
     gv = _gris(im, 1000)
     gros = [r for r in visages(gv) if r[2] / gv.shape[1] >= s["visage"]]
     if gros:
@@ -150,18 +155,24 @@ def traiter(original: bytes, reference: bytes | None = None, seuils: dict | None
         if politique_visages == "refuser":
             return {"status": "rejected", "reasons": ["visage"], "scores": scores, "variants": {}}
         im = flouter(im, gros, gv.shape[1])
-    statut, motifs = "accepted", []
     if reference:
         try:
             ref = decoder(reference)
         except Illisible:
             ref = None
         if ref:
-            if similarite(im, ref) < s["hors_cadre"]:
-                statut, motifs = "pending", ["hors_cadre"]
+            sim = similarite(im, ref)
+            scores["similarity"] = round(sim, 3)
+            if sim < s["hors_sujet"]:
+                return {"status": "rejected", "reasons": ["hors_sujet"], "scores": scores, "variants": {}}
+            if sim < s["hors_cadre"]:
+                statut, motifs = ("pending", ["hors_cadre"]) if statut == "accepted" else (statut, motifs)
             else:
                 im, scores["alignment_score"] = aligner(im, ref, s)
+                if scores["alignment_score"] is None and statut == "accepted":  # l'outil n'a pas su recaler : c'est à vous de juger
+                    statut, motifs = "pending", ["alignement_impossible"]
     im = recadrer(im)
+    # Les variantes accompagnent aussi un refus pour flou ou obscurité : si vous rattrapez la photo, c'est la version floutée qui est publiée.
     return {"status": statut, "reasons": motifs, "scores": scores, "variants": variantes(im), "width": 1600, "height": 1200}
 
 

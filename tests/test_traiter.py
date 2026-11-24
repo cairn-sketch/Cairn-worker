@@ -38,14 +38,24 @@ def test_photo_nette_acceptee_et_variantes():
     assert Image.open(io.BytesIO(r["variants"]["thumb.jpg"])).size == (480, 360)
 
 
-def test_floue_rejetee():
+def test_floue_refusee_avec_variantes():
     flou = scene().filter(ImageFilter.GaussianBlur(12))
-    assert t.traiter(octets(flou), visages=SANS_VISAGE)["reasons"] == ["floue"]
+    r = t.traiter(octets(flou), visages=SANS_VISAGE)
+    # refus d'office (motif envoyé à la personne), variantes gardées pour un rattrapage sans visage en clair
+    assert (r["status"], r["reasons"]) == ("rejected", ["floue"]) and r["variants"]
 
 
-def test_trop_sombre_rejetee():
+def test_trop_sombre_refusee_avec_variantes():
     sombre = Image.fromarray((np.asarray(scene()) * 0.05).astype(np.uint8))
-    assert t.traiter(octets(sombre), visages=SANS_VISAGE)["reasons"] == ["trop_sombre"]
+    r = t.traiter(octets(sombre), octets(scene()), visages=SANS_VISAGE)
+    assert (r["status"], r["reasons"]) == ("rejected", ["trop_sombre"]) and r["variants"]  # pas de « hors cadre » ajouté : un seul motif
+
+
+def test_hors_sujet_refusee():
+    """Seul refus lié au cadre : l'image ne montre pas du tout le paysage du cairn."""
+    uni = Image.new("RGB", (1600, 1200), (120, 110, 100))
+    r = t.traiter(octets(uni), octets(scene(graine=1)), visages=SANS_VISAGE)
+    assert (r["status"], r["reasons"]) == ("rejected", ["hors_sujet"]) and not r["variants"]
 
 
 def _rect(frac, x=0.4, y=0.3):
@@ -107,7 +117,9 @@ def test_petit_decalage_aligne_grand_decalage_conserve():
     petit = t.traiter(octets(scene(decalage=(20, 10))), ref, visages=SANS_VISAGE)
     assert petit["status"] == "accepted" and petit["scores"]["alignment_score"] is not None
     grand = t.traiter(octets(scene(decalage=(90, 60))), ref, visages=SANS_VISAGE)
-    assert grand["status"] in ("accepted", "pending") and grand["scores"]["alignment_score"] is None
+    # l'outil ne sait pas recaler : revue manuelle (jamais publiée de travers, jamais refusée)
+    assert grand["status"] == "pending" and grand["scores"]["alignment_score"] is None and grand["variants"]
+    assert set(grand["reasons"]) & {"alignement_impossible", "hors_cadre"}
 
 
 def test_bombe_de_decompression_refusee(monkeypatch):
