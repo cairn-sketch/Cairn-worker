@@ -54,8 +54,8 @@ def test_archive(monkeypatch):
     import io, zipfile
     m = charger(monkeypatch)
     u = "https://exemple.supabase.co/storage/v1/object/"
-    z = {"id": "j1", "dossier": "TST001", "upload_url": u + "upload/sign/archives/TST001.zip?token=x",
-         "fichiers": [{"nom": "TST001-001_2026-11-01.jpg", "url": u + "public/media/a.jpg"}, {"nom": "TST001-002_2026-11-02.jpg", "url": u + "public/media/b.jpg"}],
+    z = {"id": "j1", "dossier": "4311", "upload_url": u + "upload/sign/archives/4311.zip?token=x",
+         "fichiers": [{"nom": "4311-001_2026-11-01.jpg", "url": u + "public/media/a.jpg"}, {"nom": "4311-002_2026-11-02.jpg", "url": u + "public/media/b.jpg"}],
          "textes": {"manifest.csv": "cairn,pierre\n", "LISEZMOI.txt": "é"}}
     assert m.zip_valide(z)
     # noms piégés (sortie du dossier), adresses hors de l'hôte, dépôt ailleurs : refusés
@@ -67,8 +67,8 @@ def test_archive(monkeypatch):
     assert not m.zip_valide({**z, "fichiers": []})
     monkeypatch.setattr(m, "telecharger", lambda url: b"image-" + url[-5:].encode())
     a = zipfile.ZipFile(io.BytesIO(m.assembler_zip(z)))
-    assert sorted(a.namelist()) == ["TST001/LISEZMOI.txt", "TST001/TST001-001_2026-11-01.jpg", "TST001/TST001-002_2026-11-02.jpg", "TST001/manifest.csv"]
-    assert a.read("TST001/TST001-001_2026-11-01.jpg") == b"image-a.jpg" and a.read("TST001/LISEZMOI.txt").decode() == "é"
+    assert sorted(a.namelist()) == ["4311/4311-001_2026-11-01.jpg", "4311/4311-002_2026-11-02.jpg", "4311/LISEZMOI.txt", "4311/manifest.csv"]
+    assert a.read("4311/4311-001_2026-11-01.jpg") == b"image-a.jpg" and a.read("4311/LISEZMOI.txt").decode() == "é"
     # archive trop grosse : abandon, et le compte rendu dit « échec »
     monkeypatch.setattr(m, "ZIP_MAX", 5)
     envois = []

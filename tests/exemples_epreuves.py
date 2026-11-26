@@ -54,12 +54,12 @@ if __name__ == "__main__":
     import panneau
     sortie = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
     sortie.mkdir(parents=True, exist_ok=True)
-    fixtures = json.loads((Path(__file__).parent / "qr_fixtures.json").read_text())["PYR001"]
+    fixtures = json.loads((Path(__file__).parent / "qr_fixtures.json").read_text())["4219"]
     trois = [logo_large(), logo_carre(), logo_etroit()]
     for nom, f in (("large", [trois[0]]), ("carre", [trois[1]]), ("etroit", [trois[2]]), ("duo", trois[:2]), ("trio", trois)):
         if len(f) == 1:
             (sortie / f"logo-{nom}.png").write_bytes(f[0])
-        r = panneau.produire({"code": "PYR001", "mail": fixtures["lien"][7:].split("?")[0], "url": "cairn-photo.fr/c/PYR001", "qr": fixtures["qr"], "logos": [{"octets": b, "kind": "png"} for b in f]})
+        r = panneau.produire({"code": "4219", "mail": fixtures["lien"][7:].split("?")[0], "url": "cairn-photo.fr/c/4219", "qr": fixtures["qr"], "logos": [{"octets": b, "kind": "png"} for b in f]})
         (sortie / f"epreuve-{nom}.pdf").write_bytes(r["pdf"])
         (sortie / f"epreuve-{nom}.png").write_bytes(r["png"])
         print(nom, [a["code"] for a in r["avertissements"]] or "aucun avertissement")

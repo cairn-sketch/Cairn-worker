@@ -19,11 +19,12 @@ import numpy as np
 from PIL import Image, ImageOps
 
 DOSSIER = Path(__file__).resolve().parent / "panneau"
-CANEVAS = DOSSIER / "canevas.svg"
+CANEVAS = DOSSIER / "canevas.svg"  # panneau générique 200 x 300, sans logo partenaire
+CANEVAS_LOGOS = DOSSIER / "canevas-logos.svg"  # option « à vos couleurs » : même canevas + bande de 1 à 3 logos
 POLICES = DOSSIER / "polices"
-MARQUEURS = ("CODE", "MAIL", "URL", "QR", "LOGOS")
+MARQUEURS = ("CODE", "MAIL", "URL", "QR")  # {{LOGOS}} : seulement dans le canevas à logos
 A_COMPLETER = "[À COMPLÉTER]"
-RE_CODE = re.compile(r"^[A-Z]{3,4}[0-9]{3}$")
+RE_CODE = re.compile(r"^[0-9]{4,5}$")  # numéro de cairn : 4 chiffres (5 plus tard), dernier chiffre = clé
 RE_MAIL = re.compile(r"^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,120}\.[A-Za-z]{2,}$")
 RE_URL = re.compile(r"^[A-Za-z0-9._~:/-]{3,100}$")  # adresse imprimée, sans schéma
 LOGO_OCTETS_MAX = 5 * 1024 * 1024
@@ -72,8 +73,9 @@ def lire_canevas(chemin=None) -> str:
     manquants = [m for m in MARQUEURS if "{{%s}}" % m not in svg]
     if manquants:
         raise CanevasInvalide("marqueur manquant dans le canevas : " + ", ".join("{{%s}}" % m for m in manquants))
-    for m in ("QR", "LOGOS"):
-        _groupe(svg, m)
+    _groupe(svg, "QR")
+    if "{{LOGOS}}" in svg:
+        _groupe(svg, "LOGOS")
     if not re.search(r"<svg\b", svg):
         raise CanevasInvalide("le canevas n'est pas un fichier SVG")
     return svg
@@ -209,7 +211,7 @@ def preparer_logo(o: bytes, kind: str, bw: float, bh: float) -> dict:
         im = im.resize((cible, max(1, round(im.height * cible / im.width))), Image.LANCZOS)
     if not transparent:
         avert.append({"code": "fond_non_blanc"})  # code historique : le texte affiché est « fond non transparent »
-    if hmm < 6 or wmm < 10:
+    if hmm < 5 or wmm < 6:  # bande de logos de 9 mm de haut (panneau 200 x 300)
         avert.append({"code": "rapport_extreme"})
     tampon = io.BytesIO()
     im.save(tampon, "PNG")
@@ -258,6 +260,8 @@ def _rsvg(svg: str, fmt: str, *extra: str) -> bytes:
 
 def composer(tache: dict, canevas=None):
     """SVG final et avertissements. `tache` : code, mail, url (sans schéma), qr (lignes '0'/'1') et logos [{octets, kind}] ; mail, url, qr absents = « [À COMPLÉTER] »."""
+    if canevas is None and tache.get("logos"):
+        canevas = CANEVAS_LOGOS  # logos demandés : panneau « à vos couleurs » ; sinon panneau générique
     svg = lire_canevas(canevas)
     avert = []
     code = tache.get("code")
@@ -283,11 +287,12 @@ def composer(tache: dict, canevas=None):
             avert.append({"code": "qr_trop_dense"})
         dessin = '<text x="%s" y="%s" font-family="DM Mono, monospace" font-size="3.4" text-anchor="middle">%s</text>' % (cote / 2, cote / 2, escape(A_COMPLETER))
     svg = svg[:g.start()] + g.group(0).replace("{{QR}}", dessin) + svg[g.end():]
-    g = _groupe(svg, "LOGOS")
-    logos = [(i, x["octets"], x["kind"]) for i, x in enumerate(tache.get("logos") or [])][:LOGOS_MAX]
-    dessin, a = svg_logos(logos, g.group(1))
-    avert += a + ([{"code": "aucun_logo"}] if not logos else [])
-    svg = svg[:g.start()] + g.group(0).replace("{{LOGOS}}", dessin) + svg[g.end():]
+    if "{{LOGOS}}" in svg:  # canevas à logos (option « à vos couleurs »)
+        g = _groupe(svg, "LOGOS")
+        logos = [(i, x["octets"], x["kind"]) for i, x in enumerate(tache.get("logos") or [])][:LOGOS_MAX]
+        dessin, a = svg_logos(logos, g.group(1))
+        avert += a + ([{"code": "aucun_logo"}] if not logos else [])
+        svg = svg[:g.start()] + g.group(0).replace("{{LOGOS}}", dessin) + svg[g.end():]
     hote = url.split("/")[0] if url else A_COMPLETER  # pied du panneau (marqueur facultatif {{HOTE}})
     for m, v in (("CODE", code), ("MAIL", mail or A_COMPLETER), ("URL", url or A_COMPLETER), ("HOTE", hote)):
         svg = svg.replace("{{%s}}" % m, escape(v))
@@ -305,7 +310,7 @@ if __name__ == "__main__":
     ch = sys.argv[1] if len(sys.argv) > 1 else None
     sortie = Path(sys.argv[2] if len(sys.argv) > 2 else ".")
     try:
-        r = produire({"code": "PYR001", "mail": "exemple@exemple.org", "url": "exemple.org/c/PYR001", "qr": None, "logos": []}, ch)
+        r = produire({"code": "1042", "mail": "exemple@exemple.org", "url": "exemple.org/c/1042", "qr": None, "logos": []}, ch)
     except CanevasInvalide as e:
         sys.exit("Canevas refusé : %s" % e)
     (sortie / "essai-panneau.pdf").write_bytes(r["pdf"])

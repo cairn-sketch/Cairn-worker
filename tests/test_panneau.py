@@ -17,13 +17,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import panneau  # noqa: E402
 from exemples_epreuves import logo_carre, logo_etroit, logo_large  # noqa: E402
 
-HZ = float(re.search(r'data-hauteur="([\d.]+)"', panneau.CANEVAS.read_text(encoding="utf-8")).group(1))  # hauteur de la zone des logos (17,3 mm sur le panneau V2)
-SZ = float(re.search(r'<g id="logos" transform="translate\([\d.]+ ([\d.]+)\)', panneau.CANEVAS.read_text(encoding="utf-8")).group(1))  # haut de la zone des logos
+HZ = float(re.search(r'data-hauteur="([\d.]+)"', panneau.CANEVAS_LOGOS.read_text(encoding="utf-8")).group(1))  # hauteur de la bande de logos
+_G = re.search(r'<g id="logos" transform="translate\(([\d.]+) ([\d.]+)\)" data-largeur="([\d.]+)" data-hauteur="[\d.]+" data-marge="([\d.]+)" data-marge-y="([\d.]+)"', panneau.CANEVAS_LOGOS.read_text(encoding="utf-8"))
+X0, SZ, LW, LM, LMY = (float(v) for v in _G.groups())  # bande de logos du panneau « à vos couleurs » : origine, largeur, marges
+BLEED = 2.0  # fond perdu du panneau 200 x 300 (fichier 204 x 304)
+QX, QY = (float(v) for v in re.search(r'id="qr" transform="translate\(([\d.]+) ([\d.]+)\)"', panneau.CANEVAS.read_text(encoding="utf-8")).groups())  # QR 38 mm du panneau générique
 FIXTURES = json.loads((Path(__file__).parent / "qr_fixtures.json").read_text())
-MAIL = FIXTURES["PYR001"]["lien"][7:].split("?")[0]
+MAIL = FIXTURES["4219"]["lien"][7:].split("?")[0]
 
 
-def tache(code="PYR001", logos=(), **kw):
+def tache(code="4219", logos=(), **kw):
     f = FIXTURES.get(code)
     base = {"code": code, "mail": MAIL, "url": "hote.exemple/c/" + code, "qr": f["qr"] if f else None, "logos": [{"octets": o, "kind": k} for o, k in logos]}
     base.update(kw)
@@ -67,9 +70,9 @@ def test_pdf_a_l_echelle_polices_incorporees_et_textes():
     d = pdfium.PdfDocument(r["pdf"])
     assert len(d) == 1
     w, h = d[0].get_size()
-    assert (round(w * 25.4 / 72, 1), round(h * 25.4 / 72, 1)) == (206.0, 346.0)  # 200 x 340 mm + fond perdu de 3 mm de chaque côté
+    assert (round(w * 25.4 / 72, 1), round(h * 25.4 / 72, 1)) == (204.0, 304.0)  # 200 x 300 mm + fond perdu de 2 mm de chaque côté
     texte = d[0].get_textpage().get_text_range()  # texte réel (vectoriel), pas une image
-    assert "PYR001" in texte and MAIL in texte and "Objet" in texte and "hote.exemple/c/PYR001" in texte and "Retrouve le timelapse" in texte
+    assert "4219" in texte and MAIL in texte and "Objet" in texte and "hote.exemple/c/4219" in texte and "Retrouve le timelapse" in texte
     assert texte.count("hote.exemple") == 1  # adresse web (le pied « cairn-photo.fr » du panneau V2 est vectorisé)
     assert "{{" not in texte and "chronolog" not in texte.lower()
     polices = set(re.findall(rb"/BaseFont /[A-Z]{6}\+([A-Za-z-]+)", r["pdf"]))
@@ -85,7 +88,7 @@ def test_pdf_a_l_echelle_polices_incorporees_et_textes():
 def decoder_tuile(pdf: bytes, dpi: int) -> str:
     im = raster(pdf, dpi)
     k = dpi / 25.4
-    tuile = im.crop((int(18 * k), int(234.7 * k), int(65 * k), int(281.7 * k)))  # tuile claire 47 x 47 mm (+ 3 mm de fond perdu)
+    tuile = im.crop((int((BLEED + QX - 4.5) * k), int((BLEED + QY - 4.5) * k), int((BLEED + QX + 42.5) * k), int((BLEED + QY + 42.5) * k)))  # tuile claire 47 x 47 mm (+ fond perdu)
     return cv2.QRCodeDetector().detectAndDecode(cv2.cvtColor(np.asarray(tuile), cv2.COLOR_RGB2BGR))[0]
 
 
@@ -99,17 +102,17 @@ def test_qr_de_l_epreuve_redonne_exactement_le_lien_attendu(code):
 @pytest.mark.parametrize("dpi", [150, 200])
 def test_qr_lisible_a_la_taille_imprimee_35_mm(dpi):
     """38 mm de côté, modules d'environ 1 mm : lisible même sur une rastérisation modeste."""
-    r = panneau.produire(tache("MASS007"))
-    assert decoder_tuile(r["pdf"], dpi) == f"mailto:{MAIL}?subject=MASS007"
-    n = len(FIXTURES["MASS007"]["qr"])
+    r = panneau.produire(tache("4379"))
+    assert decoder_tuile(r["pdf"], dpi) == f"mailto:{MAIL}?subject=4379"
+    n = len(FIXTURES["4379"]["qr"])
     assert 38 / n >= panneau.MODULE_MIN_MM
 
 
 def test_qr_35_mm_marge_claire_et_contraste():
     im = np.asarray(raster(panneau.produire(tache())["pdf"], 300).convert("L"), dtype=float)
     k = 300 / 25.4
-    qr = im[int(240 * k):int(276 * k), int(23.5 * k):int(59.5 * k)]
-    marge = im[int(235.6 * k):int(238.6 * k), int(25 * k):int(58 * k)]  # bande de la tuile claire au-dessus du QR (4,5 mm de marge)
+    qr = im[int((BLEED + QY + 2) * k):int((BLEED + QY + 36) * k), int((BLEED + QX + 2) * k):int((BLEED + QX + 36) * k)]
+    marge = im[int((BLEED + QY - 3.5) * k):int((BLEED + QY - 0.5) * k), int((BLEED + QX) * k):int((BLEED + QX + 33) * k)]  # bande de la tuile claire au-dessus du QR (4,5 mm de marge)
     assert marge.min() > 230 and qr.min() < 80  # marge blanche, modules ardoise
     assert (qr.max() - qr.min()) > 150  # contraste fort
 
@@ -130,10 +133,10 @@ def test_matrice_de_qr_malformee_refusee_sans_planter():
 
 def test_texte_injecte_ne_passe_pas():
     with pytest.raises(ValueError):
-        panneau.produire(tache(code='PYR001"><script>alert(1)</script>'))
+        panneau.produire(tache(code='4219"><script>alert(1)</script>'))
     r = panneau.produire(tache(mail="<script>@x.fr", url='x"><script>'))
     assert {"adresse_mail_absente", "adresse_web_absente"} <= set(codes(r))
-    svg, _ = panneau.composer(tache(mail="a@b.fr", url="x.fr/c/PYR001"))
+    svg, _ = panneau.composer(tache(mail="a@b.fr", url="x.fr/c/4219"))
     assert "<script" not in svg and "{{" not in svg
 
 
@@ -170,7 +173,7 @@ def test_autre_canevas_meme_code(tmp_path):
     r = panneau.produire(tache(logos=[(logo_carre(), "png")]), f)
     d = pdfium.PdfDocument(r["pdf"])
     assert round(d[0].get_size()[0] * 25.4 / 72) == 100
-    assert d[0].get_textpage().get_text_range().count("PYR001") == 3  # deux {{CODE}} + le code dans l'adresse web (tout tient dans la ligne avec l'adresse courte)
+    assert d[0].get_textpage().get_text_range().count("4219") == 3  # deux {{CODE}} + le code dans l'adresse web (tout tient dans la ligne avec l'adresse courte)
     assert r["avertissements"] == []
 
 
@@ -191,17 +194,17 @@ def contenu(o: bytes):
 def test_trois_formes_de_logo_dans_l_emplacement(nom, fabrique):
     original = fabrique()
     ow, oh = contenu(original)  # les marges blanches sont rognées : les proportions sont celles du contenu
-    p = panneau.preparer_logo(original, "png", 168, HZ - 3)
+    p = panneau.preparer_logo(original, "png", LW - 2 * LM, HZ - 2 * LMY)
     assert p["w"] / p["h"] == pytest.approx(ow / oh, rel=0.15)  # proportions du contenu conservées (+ petite marge)
     svg, _ = panneau.composer(tache(logos=[(original, "png")]))
     (x, y, w, h), = images(svg)
-    assert min(x, 176 - (x + w)) >= 4 - 1e-3 and min(y, HZ - (y + h)) >= 1.5 - 1e-3  # marges : 4 mm sur les côtés, 1,5 mm en hauteur
-    assert abs(x - (176 - (x + w))) < 0.01 and abs(y - (HZ - (y + h))) < 0.01  # centré dans la zone de 176 mm x HZ
+    assert min(x, LW - (x + w)) >= LM - 1e-3 and min(y, HZ - (y + h)) >= LMY - 1e-3  # marges latérales et verticales de la bande
+    assert abs(x - (LW - (x + w))) < 0.01 and abs(y - (HZ - (y + h))) < 0.01  # centré dans la bande
     assert w / h == pytest.approx(ow / oh, rel=0.15)  # jamais étiré
-    assert (abs(w - 168) < 0.01 or abs(h - (HZ - 3)) < 0.01)  # au plus grand dans la zone utile
+    assert (abs(w - (LW - 2 * LM)) < 0.01 or abs(h - (HZ - 2 * LMY)) < 0.01)  # au plus grand dans la zone utile
     im = raster(panneau.produire(tache(logos=[(original, "png")]))["pdf"], 150)  # et il est bien dessiné dans l'ébauche
     k = 150 / 25.4
-    zone = np.asarray(im.crop((int((3 + 12 + x) * k), int((3 + SZ + y) * k), int((3 + 12 + x + w) * k), int((3 + SZ + y + h) * k))).convert("L"))
+    zone = np.asarray(im.crop((int((BLEED + X0 + x) * k), int((BLEED + SZ + y) * k), int((BLEED + X0 + x + w) * k), int((BLEED + SZ + y + h) * k))).convert("L"))
     assert (zone < 120).mean() > 0.02
 
 
@@ -225,11 +228,12 @@ def centres(n, logo=logo_carre):
 
 def test_disposition_un_deux_trois_logos():
     c1, _ = centres(1)
-    assert c1 == [pytest.approx(88, abs=0.01)]  # un logo : au milieu de la zone (ligne médiane x = 88 mm)
+    mid = LW / 2
+    assert c1 == [pytest.approx(mid, abs=0.01)]  # un logo : au milieu de la bande
     c2, v2 = centres(2)
-    assert c2[0] + c2[1] == pytest.approx(176, abs=0.01) and c2[0] < 88 < c2[1]  # symétriques de part et d'autre de la ligne médiane
+    assert c2[0] + c2[1] == pytest.approx(LW, abs=0.01) and c2[0] < mid < c2[1]  # symétriques de part et d'autre de la ligne médiane
     c3, v3 = centres(3)
-    assert c3[1] == pytest.approx(88, abs=0.01) and c3[0] + c3[2] == pytest.approx(176, abs=0.01)  # le central sur la ligne médiane
+    assert c3[1] == pytest.approx(mid, abs=0.01) and c3[0] + c3[2] == pytest.approx(LW, abs=0.01)  # le central sur la ligne médiane
     assert c3[1] - c3[0] == pytest.approx(c3[2] - c3[1], abs=0.01)  # répartis régulièrement
     for v in (v2, v3):
         assert len(set(v)) == 1  # même hauteur utile et même position verticale (centrés verticalement)
@@ -239,17 +243,25 @@ def test_disposition_un_deux_trois_logos():
 def test_logos_de_formes_differentes_centres_chacun_dans_sa_cellule():
     svg, _ = panneau.composer(tache(logos=[(logo_large(), "png"), (logo_carre(), "png"), (logo_etroit(), "png")]))
     im = images(svg)
-    assert [round(x + w / 2, 2) for x, y, w, h in im] == pytest.approx([32, 88, 144], abs=0.01)  # centres des 3 cellules (168 / 3 = 56 mm)
-    for (x, y, w, h), (bx, bw) in zip(im, [(4, 52), (4 + 56 + 2, 52 - 0), (4 + 112 + 2, 52)]):
-        assert y >= 1.5 - 1e-3 and y + h <= HZ - 1.5 + 1e-3 and w <= 52 + 1e-3  # 4 mm au moins entre deux logos
+    cell = (LW - 2 * LM) / 3
+    assert [round(x + w / 2, 2) for x, y, w, h in im] == pytest.approx([LM + cell * (i + 0.5) for i in range(3)], abs=0.01)  # centres des 3 cellules
+    for (x, y, w, h) in im:
+        assert y >= LMY - 1e-3 and y + h <= HZ - LMY + 1e-3 and w <= cell - 4 + 1e-3  # 4 mm au moins entre deux logos
     assert "stroke-dasharray" not in svg.split('id="logos"')[1]  # plus de pointillé séparateur
     assert len(pdfium.PdfDocument(panneau.produire(tache(logos=[(logo_large(), "png")] * 3))["pdf"])) == 1
     assert panneau.composer(tache(logos=[(logo_carre(), "png")] * 4))[0].count("<image") == 3  # trois au plus
 
 
-def test_sans_logo_emplacement_vide_et_avertissement():
+def test_sans_logo_panneau_generique_sans_bande_ni_avertissement():
     r = panneau.produire(tache())
-    assert codes(r) == ["aucun_logo"]
+    assert codes(r) == []  # panneau standard : pas de logo partenaire, rien à signaler
+    svg, _ = panneau.composer(tache())
+    assert "{{LOGOS}}" not in svg and 'id="logos"' not in svg and "INSTALLÉ AVEC" not in svg
+    assert 'width="204mm" height="304mm"' in svg and 'rx="10"' not in svg
+    avec, _ = panneau.composer(tache(logos=[(logo_carre(), "png")]))
+    assert "INSTALLÉ AVEC" in avec and avec.count("<image") == 1  # option « à vos couleurs » : bande de logos
+    r = panneau.produire(tache(), panneau.CANEVAS_LOGOS)
+    assert codes(r) == ["aucun_logo"]  # canevas à logos sans logo : avertissement
 
 
 # ------------------------------------------------------------------ contrôles automatiques et avertissements
@@ -363,7 +375,7 @@ U = "https://exemple.supabase.co/storage/v1/"
 
 
 def tache_worker(**kw):
-    t = {"id": "a1a1a1a1-0000-4000-8000-000000000001", "gen": 2, "code": "PYR001", "mail": MAIL, "url": "hote.exemple/c/PYR001", "qr": FIXTURES["PYR001"]["qr"],
+    t = {"id": "a1a1a1a1-0000-4000-8000-000000000001", "gen": 2, "code": "4219", "mail": MAIL, "url": "hote.exemple/c/4219", "qr": FIXTURES["4219"]["qr"],
          "logos": [{"url": U + "l1", "kind": "png"}], "upload_pdf": U + "p.pdf", "upload_png": U + "p.png"}
     t.update(kw)
     return t
@@ -461,7 +473,7 @@ def test_hote_du_pied_pris_dans_l_adresse_web(tmp_path):
     assert 'id="pied-adresse"' in panneau.composer(tache())[0]
     f = tmp_path / "hote.svg"
     f.write_text(panneau.CANEVAS.read_text(encoding="utf-8").replace("</svg>", '<text font-family="Figtree">{{HOTE}}</text></svg>'), encoding="utf-8")
-    svg, _ = panneau.composer(tache(url="cairn-photo.fr/c/PYR001"), f)
+    svg, _ = panneau.composer(tache(url="cairn-photo.fr/c/4219"), f)
     assert ">cairn-photo.fr</text>" in svg and "{{HOTE}}" not in svg
 
 
@@ -489,9 +501,9 @@ def test_logo_a_grandes_marges_blanches_remplit_la_zone(fmt, kind):
     o = octets(logo_marges(), fmt)
     svg, avert = panneau.composer(tache(logos=[(o, kind)]))
     (x, y, w, h), = images(svg)
-    assert h == pytest.approx(HZ - 3, abs=0.01) and w == pytest.approx(h, rel=0.02)  # hauteur utile maximale, proportions du contenu (carré)
+    assert h == pytest.approx(HZ - 2 * LMY, abs=0.01) and w == pytest.approx(h, rel=0.02)  # hauteur utile maximale, proportions du contenu (carré)
     assert "fond_non_blanc" not in [a["code"] for a in avert]
-    p = panneau.preparer_logo(o, kind, 168, HZ - 3)
+    p = panneau.preparer_logo(o, kind, LW - 2 * LM, HZ - 2 * LMY)
     sortie = np.asarray(Image.open(io.BytesIO(p["png"])).convert("RGBA"))
     assert sortie.shape[0] < 460 and sortie.shape[1] < 460  # 2000 px d'origine, contenu de 400 px + petite marge
     assert sortie[0, 0, 3] == 0 and sortie[-1, -1, 3] == 0  # fond transparent
@@ -502,7 +514,7 @@ def test_logo_a_grandes_marges_blanches_remplit_la_zone(fmt, kind):
 def test_logo_deja_transparent_rogne_sans_alteration():
     im = Image.new("RGBA", (1500, 900), (0, 0, 0, 0))
     im.paste((200, 30, 30, 255), (500, 300, 1100, 500))
-    p = panneau.preparer_logo(octets(im), "png", 168, HZ - 3)
+    p = panneau.preparer_logo(octets(im), "png", 168, 60)  # grande case : aucun ré-échantillonnage
     sortie = np.asarray(Image.open(io.BytesIO(p["png"])).convert("RGBA"))
     assert sortie.shape[:2] == (200 + 2 * 12, 600 + 2 * 12)  # contenu 600 x 200 + marge (2 % de 600)
     assert {tuple(c) for c in sortie.reshape(-1, 4) if c[3]} == {(200, 30, 30, 255)}
@@ -518,6 +530,6 @@ def test_pdf_de_logo_rogne_ses_marges():
     im = Image.new("RGB", (2000, 1000), "white")
     ImageDraw.Draw(im).rectangle((900, 450, 1099, 549), fill=(200, 30, 30))  # 200 x 100 px au centre d'une page à grandes marges
     t = io.BytesIO(); im.save(t, "PDF", resolution=72)
-    p = panneau.preparer_logo(t.getvalue(), "pdf", 168, HZ - 3)
+    p = panneau.preparer_logo(t.getvalue(), "pdf", LW - 2 * LM, HZ - 2 * LMY)
     assert p["w"] / p["h"] == pytest.approx(2.0, rel=0.1) and p["w"] > 200
     assert Image.open(io.BytesIO(p["png"])).convert("RGBA").getpixel((0, 0))[3] == 0

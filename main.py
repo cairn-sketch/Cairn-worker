@@ -243,10 +243,44 @@ def fabriquer_panneau(p: dict):
             print(json.dumps({"erreur": "rappel_panneau"}), flush=True)
 
 
+def lot_valide(p) -> bool:
+    """Forme seulement : le contenu (numéros, adresses, QR) est contrôlé dans panneau.py, dans un processus isolé."""
+    return (isinstance(p, dict) and isinstance(p.get("id"), str) and url_permise(p.get("upload_url")) and isinstance(p.get("panneaux"), list) and 0 < len(p["panneaux"]) <= 50
+            and all(isinstance(x, dict) and isinstance(x.get("numero"), str) for x in p["panneaux"]))
+
+
+def fabriquer_lot(p: dict):
+    """Lot de panneaux génériques : un PDF par panneau nommé par son numéro + lot.csv, dans un zip déposé par URL signée ; compte rendu à `worker-taches`."""
+    import csv
+    ok = False
+    with UN_A_LA_FOIS:
+        try:
+            tampon = io.BytesIO()
+            with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as z:
+                lignes = io.StringIO()
+                w = csv.writer(lignes, delimiter=";")
+                w.writerow(["numero", "adresse_web", "adresse_mail"])
+                for x in p["panneaux"]:
+                    res = produire_panneau_isole({"code": x["numero"], "mail": p.get("mail"), "url": x.get("url"), "qr": x.get("qr"), "logos": []})
+                    if "pdf" not in res:
+                        raise RuntimeError(res.get("erreur", "panneau"))
+                    z.writestr("%s.pdf" % x["numero"], res["pdf"])
+                    w.writerow([x["numero"], x.get("url"), p.get("mail")])
+                z.writestr("lot.csv", "\ufeff" + lignes.getvalue())
+            requete(p["upload_url"], "PUT", tampon.getvalue(), "application/zip", None, 180)
+            ok = True
+        except Exception:
+            print(json.dumps({"erreur": "lot"}), flush=True)
+        try:
+            requete(f"{FONCTIONS}/worker-taches", "POST", json.dumps({"lot_fini": p["id"], "ok": ok}).encode(), "application/json", SECRET)
+        except Exception:
+            print(json.dumps({"erreur": "rappel_lot"}), flush=True)
+
+
 def boucle():
     while True:
         try:
-            req = urllib.request.Request(f"{FONCTIONS}/worker-taches", b'{"zip": true, "media": true, "panneau": true}', {"Authorization": f"Bearer {SECRET}", "Content-Type": "application/json"}, method="POST")
+            req = urllib.request.Request(f"{FONCTIONS}/worker-taches", b'{"zip": true, "media": true, "panneau": true, "lot": true}', {"Authorization": f"Bearer {SECRET}", "Content-Type": "application/json"}, method="POST")
             with urllib.request.urlopen(req, timeout=30) as r:
                 if r.status == 200:
                     reponse = json.loads(r.read(100_000))
@@ -258,6 +292,9 @@ def boucle():
                         continue
                     if panneau_valide(reponse.get("panneau")):
                         fabriquer_panneau(reponse["panneau"])
+                        continue
+                    if lot_valide(reponse.get("lot")):
+                        fabriquer_lot(reponse["lot"])
                         continue
                     if zip_valide(reponse.get("zip")):
                         archiver(reponse["zip"])
