@@ -299,6 +299,19 @@ def composer(tache: dict, canevas=None):
     return svg, avert
 
 
+HAUTEUR_LOGO_IFRAME = 112  # px : 28 px affichés sur mobile, quatre fois pour les écrans denses
+
+
+def logo_iframe(o: bytes, kind: str) -> dict:
+    """Version détourée et rognée d'un logo pour l'iframe (publique) : PNG transparent, 112 px de haut au plus, jamais étiré ni recoloré."""
+    im = Image.open(io.BytesIO(preparer_logo(o, kind, 60, 20)["png"])).convert("RGBA")
+    if im.height > HAUTEUR_LOGO_IFRAME:
+        im = im.resize((max(1, round(im.width * HAUTEUR_LOGO_IFRAME / im.height)), HAUTEUR_LOGO_IFRAME), Image.LANCZOS)
+    tampon = io.BytesIO()
+    im.save(tampon, "PNG", optimize=True)
+    return {"png": tampon.getvalue()}
+
+
 def produire(tache: dict, canevas=None) -> dict:
     """{'pdf': octets, 'png': octets, 'avertissements': [...]}. Erreur de canevas : exception CanevasInvalide (message en français)."""
     svg, avert = composer(tache, canevas)

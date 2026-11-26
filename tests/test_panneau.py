@@ -533,3 +533,27 @@ def test_pdf_de_logo_rogne_ses_marges():
     p = panneau.preparer_logo(t.getvalue(), "pdf", LW - 2 * LM, HZ - 2 * LMY)
     assert p["w"] / p["h"] == pytest.approx(2.0, rel=0.1) and p["w"] > 200
     assert Image.open(io.BytesIO(p["png"])).convert("RGBA").getpixel((0, 0))[3] == 0
+
+
+@pytest.mark.parametrize("fabrique", [logo_large, logo_carre, logo_etroit])
+def test_logo_iframe_detoure_et_reduit(fabrique):
+    original = fabrique()
+    r = panneau.logo_iframe(original, "png")
+    im = Image.open(io.BytesIO(r["png"]))
+    assert im.format == "PNG" and im.height <= panneau.HAUTEUR_LOGO_IFRAME and len(r["png"]) < 204800
+    ow, oh = contenu(original)
+    assert im.width / im.height == pytest.approx(ow / oh, rel=0.2)  # proportions du contenu, sans étirement
+
+
+def test_logo_iframe_deguise_refuse():
+    with pytest.raises(panneau.LogoRefuse):
+        panneau.logo_iframe(SVG, "png")
+
+
+def test_bande_de_logos_d_au_moins_18_mm_et_logos_de_12_a_15_mm():
+    assert HZ >= 18
+    p = panneau.preparer_logo(logo_large(), "png", LW - 2 * LM, HZ - 2 * LMY)
+    hmm = p["h"] / p["w"] * (LW - 2 * LM) if p["w"] / p["h"] > (LW - 2 * LM) / (HZ - 2 * LMY) else HZ - 2 * LMY
+    assert hmm <= 15.3
+    p2 = panneau.preparer_logo(logo_carre(), "png", LW - 2 * LM, HZ - 2 * LMY)
+    assert 12 <= HZ - 2 * LMY <= 15.3 and p2["h"] > 0

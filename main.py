@@ -201,7 +201,7 @@ def _enfant_panneau(conn, entree):
     try:
         import panneau
         try:
-            conn.send(panneau.produire(entree))
+            conn.send(panneau.logo_iframe(entree["octets"], entree["kind"]) if "octets" in entree else panneau.produire(entree))
         except panneau.CanevasInvalide as e:
             conn.send({"erreur": "canevas_invalide", "detail": str(e)[:200]})
     except Exception:
@@ -243,6 +243,27 @@ def fabriquer_panneau(p: dict):
             print(json.dumps({"erreur": "rappel_panneau"}), flush=True)
 
 
+def logo_valide(p) -> bool:
+    return isinstance(p, dict) and isinstance(p.get("id"), str) and p.get("kind") in TYPES_LOGO and isinstance(p.get("chemin"), str) and url_permise(p.get("url")) and url_permise(p.get("upload_url"))
+
+
+def fabriquer_logo(p: dict):
+    """Copie publique d'un logo pour l'iframe : détourée et rognée dans un processus isolé, déposée par URL signée ; compte rendu à `worker-taches`."""
+    ok = False
+    with UN_A_LA_FOIS:
+        try:
+            res = produire_panneau_isole({"octets": telecharger(p["url"], LOGO_MAX, False), "kind": p["kind"]})
+            if "png" in res:
+                requete(p["upload_url"], "PUT", res["png"], "image/png")
+                ok = True
+        except Exception:  # aucune donnée de logo dans les journaux
+            print(json.dumps({"erreur": "logo_iframe"}), flush=True)
+        try:
+            requete(f"{FONCTIONS}/worker-taches", "POST", json.dumps({"logo_fini": p["id"], "chemin": p.get("chemin"), "ok": ok}).encode(), "application/json", SECRET)
+        except Exception:
+            print(json.dumps({"erreur": "rappel_logo"}), flush=True)
+
+
 def lot_valide(p) -> bool:
     """Forme seulement : le contenu (numéros, adresses, QR) est contrôlé dans panneau.py, dans un processus isolé."""
     return (isinstance(p, dict) and isinstance(p.get("id"), str) and url_permise(p.get("upload_url")) and isinstance(p.get("panneaux"), list) and 0 < len(p["panneaux"]) <= 50
@@ -280,7 +301,7 @@ def fabriquer_lot(p: dict):
 def boucle():
     while True:
         try:
-            req = urllib.request.Request(f"{FONCTIONS}/worker-taches", b'{"zip": true, "media": true, "panneau": true, "lot": true}', {"Authorization": f"Bearer {SECRET}", "Content-Type": "application/json"}, method="POST")
+            req = urllib.request.Request(f"{FONCTIONS}/worker-taches", b'{"zip": true, "media": true, "panneau": true, "lot": true, "logo": true}', {"Authorization": f"Bearer {SECRET}", "Content-Type": "application/json"}, method="POST")
             with urllib.request.urlopen(req, timeout=30) as r:
                 if r.status == 200:
                     reponse = json.loads(r.read(100_000))
@@ -292,6 +313,9 @@ def boucle():
                         continue
                     if panneau_valide(reponse.get("panneau")):
                         fabriquer_panneau(reponse["panneau"])
+                        continue
+                    if logo_valide(reponse.get("logo")):
+                        fabriquer_logo(reponse["logo"])
                         continue
                     if lot_valide(reponse.get("lot")):
                         fabriquer_lot(reponse["lot"])

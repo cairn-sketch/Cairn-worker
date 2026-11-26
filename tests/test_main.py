@@ -111,3 +111,18 @@ def test_image_d_actualite_illisible_signalee_en_erreur(monkeypatch):
     u = "https://exemple.supabase.co/s/"
     m.reencoder_media({"id": "m2", "original_url": u + "o", "upload_url": u + "u"})
     assert len(envois) == 1 and json.loads(envois[0][1]) == {"media_fini": "m2", "ok": False}   # rien n'est déposé
+
+
+def test_logo_iframe_forme_et_traitement_isole(monkeypatch):
+    import io
+    from PIL import Image
+    m = charger(monkeypatch)
+    u = "https://exemple.supabase.co/storage/v1/object/"
+    ok = {"id": "o", "kind": "png", "chemin": "o/a.png", "url": u + "sign/org-logos/a.png?token=x", "upload_url": u + "upload/sign/logos-iframe/o/a.png?token=x"}
+    assert m.logo_valide(ok)
+    assert not m.logo_valide({**ok, "kind": "svg"}) and not m.logo_valide({**ok, "chemin": None}) and not m.logo_valide({**ok, "upload_url": "https://evil.example/u"}) and not m.logo_valide(None)
+    im = Image.new("RGB", (300, 100), "white")
+    im.paste((200, 30, 30), (40, 20, 260, 80))
+    b = io.BytesIO(); im.save(b, "PNG")
+    res = m.produire_panneau_isole({"octets": b.getvalue(), "kind": "png"})
+    assert Image.open(io.BytesIO(res["png"])).height <= 112
