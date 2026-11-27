@@ -20,7 +20,7 @@ from exemples_epreuves import logo_carre, logo_etroit, logo_large  # noqa: E402
 HZ = float(re.search(r'data-hauteur="([\d.]+)"', panneau.CANEVAS_LOGOS.read_text(encoding="utf-8")).group(1))  # hauteur de la bande de logos
 _G = re.search(r'<g id="logos" transform="translate\(([\d.]+) ([\d.]+)\)" data-largeur="([\d.]+)" data-hauteur="[\d.]+" data-marge="([\d.]+)" data-marge-y="([\d.]+)"', panneau.CANEVAS_LOGOS.read_text(encoding="utf-8"))
 X0, SZ, LW, LM, LMY = (float(v) for v in _G.groups())  # bande de logos du panneau « à vos couleurs » : origine, largeur, marges
-BLEED = 2.0  # fond perdu du panneau 200 x 300 (fichier 204 x 304)
+BLEED = 2.0  # fond perdu du panneau 200 x 340 (fichier 204 x 344)
 QX, QY = (float(v) for v in re.search(r'id="qr" transform="translate\(([\d.]+) ([\d.]+)\)"', panneau.CANEVAS.read_text(encoding="utf-8")).groups())  # QR 38 mm du panneau générique
 FIXTURES = json.loads((Path(__file__).parent / "qr_fixtures.json").read_text())
 MAIL = FIXTURES["4219"]["lien"][7:].split("?")[0]
@@ -70,7 +70,7 @@ def test_pdf_a_l_echelle_polices_incorporees_et_textes():
     d = pdfium.PdfDocument(r["pdf"])
     assert len(d) == 1
     w, h = d[0].get_size()
-    assert (round(w * 25.4 / 72, 1), round(h * 25.4 / 72, 1)) == (204.0, 304.0)  # 200 x 300 mm + fond perdu de 2 mm de chaque côté
+    assert (round(w * 25.4 / 72, 1), round(h * 25.4 / 72, 1)) == (204.0, 344.0)  # 200 x 340 mm + fond perdu de 2 mm de chaque côté
     texte = d[0].get_textpage().get_text_range()  # texte réel (vectoriel), pas une image
     assert "4219" in texte and MAIL in texte and "Objet" in texte and "hote.exemple/c/4219" in texte and "Retrouve le timelapse" in texte
     assert texte.count("hote.exemple") == 1  # adresse web (le pied « cairn-photo.fr » du panneau V2 est vectorisé)
@@ -257,7 +257,7 @@ def test_sans_logo_panneau_generique_sans_bande_ni_avertissement():
     assert codes(r) == []  # panneau standard : pas de logo partenaire, rien à signaler
     svg, _ = panneau.composer(tache())
     assert "{{LOGOS}}" not in svg and 'id="logos"' not in svg and "INSTALLÉ AVEC" not in svg
-    assert 'width="204mm" height="304mm"' in svg and 'rx="10"' not in svg
+    assert 'width="204mm" height="344mm"' in svg and 'rx="10"' not in svg
     avec, _ = panneau.composer(tache(logos=[(logo_carre(), "png")]))
     assert "INSTALLÉ AVEC" in avec and avec.count("<image") == 1  # option « à vos couleurs » : bande de logos
     r = panneau.produire(tache(), panneau.CANEVAS_LOGOS)
@@ -550,10 +550,10 @@ def test_logo_iframe_deguise_refuse():
         panneau.logo_iframe(SVG, "png")
 
 
-def test_bande_de_logos_d_au_moins_18_mm_et_logos_de_12_a_15_mm():
-    assert HZ >= 18
+def test_bande_de_logos_d_environ_30_mm_et_logos_de_22_a_24_mm():
+    assert HZ >= 29
     p = panneau.preparer_logo(logo_large(), "png", LW - 2 * LM, HZ - 2 * LMY)
     hmm = p["h"] / p["w"] * (LW - 2 * LM) if p["w"] / p["h"] > (LW - 2 * LM) / (HZ - 2 * LMY) else HZ - 2 * LMY
-    assert hmm <= 15.3
+    assert hmm <= 24.3
     p2 = panneau.preparer_logo(logo_carre(), "png", LW - 2 * LM, HZ - 2 * LMY)
-    assert 12 <= HZ - 2 * LMY <= 15.3 and p2["h"] > 0
+    assert 22 <= HZ - 2 * LMY <= 24.3 and p2["h"] > 0

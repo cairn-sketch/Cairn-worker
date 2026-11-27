@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image, ImageOps
 
 DOSSIER = Path(__file__).resolve().parent / "panneau"
-CANEVAS = DOSSIER / "canevas.svg"  # panneau générique 200 x 300, sans logo partenaire
+CANEVAS = DOSSIER / "canevas.svg"  # panneau générique 200 x 340, sans logo partenaire
 CANEVAS_LOGOS = DOSSIER / "canevas-logos.svg"  # option « à vos couleurs » : même canevas + bande de 1 à 3 logos
 POLICES = DOSSIER / "polices"
 MARQUEURS = ("CODE", "MAIL", "URL", "QR")  # {{LOGOS}} : seulement dans le canevas à logos
@@ -211,7 +211,7 @@ def preparer_logo(o: bytes, kind: str, bw: float, bh: float) -> dict:
         im = im.resize((cible, max(1, round(im.height * cible / im.width))), Image.LANCZOS)
     if not transparent:
         avert.append({"code": "fond_non_blanc"})  # code historique : le texte affiché est « fond non transparent »
-    if hmm < 5 or wmm < 6:  # bande de logos de 9 mm de haut (panneau 200 x 300)
+    if hmm < 5 or wmm < 6:  # bande de logos de 30 mm de haut (panneau 200 x 340)
         avert.append({"code": "rapport_extreme"})
     tampon = io.BytesIO()
     im.save(tampon, "PNG")
